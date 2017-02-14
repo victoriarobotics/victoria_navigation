@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package>
+  <name>victoria_navigation</name>
+  <version>0.2.7</version>
+  <description>Autonomous navigation demos for Victoria robot</description>
+
+  <author email="jrcapriles@gmail.com">Jose Capriles</author>
+
+  <maintainer email="jrcapriles@gmail.com">Jose Capriles</maintainer>
+
+  <license>BSD</license>
+
+  <url type="bugtracker">https://github.com/victoriarobotics/victoria_navigation/issues</url>
+  <url type="repository">https://github.com/victoriarobotics/victoria_navigation</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roslaunch</build_depend>
+  <run_depend>amcl</run_depend>
+  <run_depend>frontier_exploration</run_depend>
+  <run_depend>gmapping</run_depend>
+  <run_depend>map_server</run_depend>
+  <run_depend>move_base</run_depend>
+  <run_depend>navfn</run_depend>
+  <run_depend>base_local_planner</run_depend>
+  <run_depend>dwa_local_planner</run_depend>
+
+  <export>
+  </export>
+</package>
