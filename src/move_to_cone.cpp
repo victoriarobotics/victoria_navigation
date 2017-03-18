@@ -93,7 +93,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 		} else {
 			// Turn towards cone.
 			cmd_vel.linear.x = 0.2; //### Arbitrary.
-			cmd_vel.angular.z = ((image_width / 2.0) - last_object_detected_.object_x) / last_object_detected_.image_width;
+			cmd_vel.angular.z =- ((image_width / 2.0) - last_object_detected_.object_x) / last_object_detected_.image_width;
 			cmd_vel_pub_.publish(cmd_vel);
 			ss << "[" << goal_status.goal_id.stamp << " MoveToCone::tick]";
 			ss << " turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
