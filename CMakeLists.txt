@@ -1,9 +1,46 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(victoria_navigation)
 
-find_package(catkin REQUIRED roslaunch)
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread" )
+SET(FLAGS "-g -ggdb -g3")
 
-catkin_package()
+## Add support for C++11, supported in ROS Kinetic and newer
+add_definitions(-std=c++11)
+
+find_package(catkin REQUIRED 
+	geometry_msgs
+	roscpp
+	roslaunch
+	rospy
+	std_msgs
+	victoria_perception
+)
+
+catkin_package(
+  INCLUDE_DIRS include
+  CATKIN_DEPENDS
+  geometry_msgs
+  roscpp
+  rospy
+  std_msgs
+)
+
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+  include
+)
+
+add_executable(cone_finder_strategy_node
+	src/cone_finder_strategy_node.cpp
+	src/strategy_context.cpp
+	src/strategy_fn.cpp
+	src/move_to_cone.cpp
+)
+
+target_link_libraries(
+  cone_finder_strategy_node
+  ${catkin_LIBRARIES}
+)
 
 roslaunch_add_file_check(launch)
 
