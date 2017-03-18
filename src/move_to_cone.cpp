@@ -68,6 +68,17 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 	goal_status.status = actionlib_msgs::GoalStatus::ACTIVE;
 
 	if (state_ == kMOVING_TO_CENTERING_POSITION) {
+		if (last_object_detected_.object_area > 100000) {
+			//### Fake test to stop when close.
+			cmd_vel.linear.x = 0;
+			cmd_vel.angular.z = 0;
+			cmd_vel_pub_.publish(cmd_vel);
+			ss << "[" << goal_status.goal_id.stamp << " MoveToCone::tick]";
+			ss << " close, STOP";
+			ss << ", area: " << last_object_detected_.object_area;
+			strategy_context_.blackboard["needToMoveToCone"] = "F";
+		}
+
 		result = RUNNING;
 		int image_width = last_object_detected_.image_width;
 		int object_x = last_object_detected_.object_x;
@@ -78,6 +89,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			cmd_vel_pub_.publish(cmd_vel);
 			ss << "[" << goal_status.goal_id.stamp << " MoveToCone::tick]";
 			ss << " go straight, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
+			ss << ", area: " << last_object_detected_.object_area;
 		} else {
 			// Turn towards cone.
 			cmd_vel.linear.x = 0.2; //### Arbitrary.
@@ -85,6 +97,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			cmd_vel_pub_.publish(cmd_vel);
 			ss << "[" << goal_status.goal_id.stamp << " MoveToCone::tick]";
 			ss << " turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
+			ss << ", area: " << last_object_detected_.object_area;
 		}
 	} else if (state_ == kMOVING_TO_TOUCH) {
 		ROS_INFO("[MoveToCone::tick] FAILED: Unimplemented state kMOVING_TO_TOUCH");
