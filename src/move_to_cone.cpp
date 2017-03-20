@@ -22,6 +22,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <cassert>
 #include <ros/ros.h>
 #include <actionlib_msgs/GoalStatus.h>
 #include <geometry_msgs/Twist.h>
@@ -35,8 +36,9 @@ MoveToCone::MoveToCone() :
 	object_detections_received_(0),
 	state_(kMOVING_TO_CENTERING_POSITION)
 {
-	ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_);
-	ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_);
+	assert(ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_));
+	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
+	assert(ros::param::get("~do_debug_strategy", do_debug_strategy_));
 	
 	cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_name_.c_str(), 1);
 	current_strategy_pub_ = nh_.advertise<std_msgs::String>("current_strategy", 1, true /* latched */);
@@ -64,7 +66,7 @@ void MoveToCone::publishCurrentStragety(string strategy) {
 	if (strategy != last_reported_strategy_) {
 		last_reported_strategy_ = strategy;
 		current_strategy_pub_.publish(msg);
-		ROS_INFO("[MoveToCone] strategy: %s", strategy.c_str());
+		ROS_INFO_COND(do_debug_strategy_, "[MoveToCone] strategy: %s", strategy.c_str());
 	}
 }
 
@@ -76,17 +78,17 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 
 	bool need_to_move_to_cone;
 	if (!ros::param::get(goalRequestParam(), need_to_move_to_cone) || (!need_to_move_to_cone)) {
-		ROS_INFO("[MoveToCone::tick] FAILED: need_to_move_to_cone not active");
+		ROS_INFO_COND(do_debug_strategy_, "[MoveToCone::tick] FAILED: need_to_move_to_cone not active");
 		return FAILED;
 	}
 
 	if (object_detections_received_ <= 0) {
-		ROS_INFO("[MoveToCone::tick] FAILED: no ConeDetector messages received");
+		ROS_INFO_COND(do_debug_strategy_, "[MoveToCone::tick] FAILED: no ConeDetector messages received");
 		return FAILED; // No data yet.
 	}
 
 	if (!last_object_detected_.object_detected) {
-		ROS_INFO("[MoveToCone::tick] FAILED: no object detected");
+		ROS_INFO_COND(do_debug_strategy_, "[MoveToCone::tick] FAILED: no object detected");
 		return FAILED; // No cone found.
 	}
 
@@ -130,7 +132,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			}
 		}
 	} else if (state_ == kMOVING_TO_TOUCH) {
-		ROS_INFO("[MoveToCone::tick] FAILED: Unimplemented state kMOVING_TO_TOUCH");
+		ROS_ERROR("[MoveToCone::tick] FAILED: Unimplemented state kMOVING_TO_TOUCH");
 		return FAILED;
 	} else {
 		ROS_ERROR("[MoveToCone::tick] FAILED: invalid state");
@@ -139,7 +141,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 
 	goal_status.text = ss.str();
 	strategy_status_publisher_.publish(goal_status);
-	ROS_INFO("[MoveToCone::tick] %s", ss.str().c_str());
+	ROS_INFO_COND(do_debug_strategy_, "[MoveToCone::tick] %s", ss.str().c_str());
 
 	return result;
 }

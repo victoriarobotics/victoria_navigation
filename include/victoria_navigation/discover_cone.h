@@ -47,6 +47,7 @@ private:
 	// Parameters.
 	string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
 	string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
+	bool do_debug_strategy_;			// Emit info traces to help debug code.
 	string odometry_topic_name_;		// Topic name containing Odometry message.
 
 	// Publishers.
