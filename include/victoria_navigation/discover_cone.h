@@ -22,20 +22,23 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef __MOVE_TO_CONE
-#define __MOVE_TO_CONE
+#ifndef __DISCOVER_CONE
+#define __DISCOVER_CONE
 
 #include <ros/ros.h>
+#include <nav_msgs/Odometry.h>
 #include <string>
+#include <tf/LinearMath/Quaternion.h>
+#include <tf/transform_datatypes.h>
 
 #include "victoria_perception/ObjectDetector.h"
 #include "victoria_navigation/strategy_fn.h"
 
-class MoveToCone : public StrategyFn {
+class DiscoverCone : public StrategyFn {
 private:
 	typedef enum {
-		kMOVING_TO_CENTERING_POSITION,
-		kMOVING_TO_TOUCH
+		kCAPTURE_ODOMETRY,
+		kROTATING_TO_DISCOVER
 	} STATE;
 
 	// ROS node handle.
@@ -43,7 +46,8 @@ private:
 
 	// Parameters.
 	string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
-	string cone_detector_topic_name_;	// Topic name containing cone_detector message
+	string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
+	string odometry_topic_name_;		// Topic name containing Odometry message.
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
@@ -52,38 +56,52 @@ private:
 
 	// Subscribers.
 	ros::Subscriber	cone_detector_sub_;
+	ros::Subscriber odometry_sub_;
 
 	// Algorithm variables.
 	string last_reported_strategy_;
+	bool odometry_capturered_;					// Odometry message has been captured.
+	geometry_msgs::Quaternion previous_pose_;	// Pose from last Odometry message.
+	nav_msgs::Odometry starting_Odometry_msg_;	// Odometry mesage at start of rotation strategy.
+	double starting_yaw_;						// Starting yaw.
+	double total_rotated_yaw_;					// Integration of rotational yaw since start.
 	STATE state_;
 	
-	// Process one cone detector topic message.
-	long int object_detections_received_;
-	victoria_perception::ObjectDetector last_object_detected_;
+	// Process one ConeDetector topic message.
+	long int count_ObjectDetector_msgs_received_;
+	victoria_perception::ObjectDetector last_ObjectDetector_msg_;
 	void coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg);
 
 	// Reset goal. After this, someone must request the goal again and it will start over.
 	void resetGoal();
 
+	// Normalize an Euler angle into [0..360].
+	double normalizeEuler(double yaw);
+
+	// Process one Odometry topic message;
+	long int count_Odometry_msgs_received_;
+	nav_msgs::Odometry last_Odometry_msg_;
+	void odometryCb(const nav_msgs::OdometryConstPtr& msg);
+
 	// Publish current strategy (if changed).
 	void publishCurrentStragety(string strategy);
 
 	// Singleton pattern.
-	MoveToCone();
-	MoveToCone(MoveToCone const&) {};
-	MoveToCone& operator=(MoveToCone const&) {};
+	DiscoverCone();
+	DiscoverCone(DiscoverCone const&) {};
+	DiscoverCone& operator=(DiscoverCone const&) {};
 
 public:
 	RESULT_T tick();
 
-	string name() { return string("MoveToCone"); };
+	string name() { return string("DiscoverCone"); };
 
-	static MoveToCone& singleton();
+	static DiscoverCone& singleton();
 
 	string stateName(STATE state) {
 		switch (state) {
-			case kMOVING_TO_CENTERING_POSITION:		return "kMOVING_TO_CENTERING_POSITION";
-			case kMOVING_TO_TOUCH:					return "kMOVING_TO_TOUCH";
+			case kCAPTURE_ODOMETRY:					return "kCAPTURE_ODOMETRY";
+			case kROTATING_TO_DISCOVER:				return "kROTATING_TO_DISCOVER";
 			default:								return "!!UNKNOWN!!";
 		}
 	}

@@ -32,9 +32,9 @@ include_directories(
 
 add_executable(cone_finder_strategy_node
 	src/cone_finder_strategy_node.cpp
-	src/strategy_context.cpp
-	src/strategy_fn.cpp
+	src/discover_cone.cpp
 	src/move_to_cone.cpp
+	src/strategy_fn.cpp
 )
 
 target_link_libraries(
