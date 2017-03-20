@@ -1,4 +1,4 @@
-// Copyright <YEAR> <COPYRIGHT HOLDER>
+// Copyright 2017 Michael Wimble
 
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
@@ -22,6 +22,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <cassert>
 #include <ros/ros.h>
 #include <actionlib_msgs/GoalStatus.h>
 #include <geometry_msgs/Twist.h>
@@ -37,9 +38,10 @@ DiscoverCone::DiscoverCone() :
 	odometry_capturered_(false),
 	state_(kCAPTURE_ODOMETRY)
 {
-	ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_);
-	ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_);
-	ros::param::get("~odometry_topic_name", odometry_topic_name_);
+	assert(ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_));
+	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
+	assert(ros::param::get("~do_debug_strategy", do_debug_strategy_));
+	assert(ros::param::get("~odometry_topic_name", odometry_topic_name_));
 	
 	cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_name_.c_str(), 1);
 	current_strategy_pub_ = nh_.advertise<std_msgs::String>("current_strategy", 1, true /* latched */);
@@ -76,7 +78,7 @@ void DiscoverCone::publishCurrentStragety(string strategy) {
 	if (strategy != last_reported_strategy_) {
 		last_reported_strategy_ = strategy;
 		current_strategy_pub_.publish(msg);
-		ROS_INFO("[DiscoverCone] strategy: %s", strategy.c_str());
+		ROS_INFO_COND(do_debug_strategy_, "[DiscoverCone] strategy: %s", strategy.c_str());
 	}
 }
 
@@ -94,17 +96,17 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 
 	bool need_to_discover_cone;
 	if (!ros::param::get(goalRequestParam(), need_to_discover_cone) || (!need_to_discover_cone)) {
-		ROS_INFO("[DiscoverCone::tick] FAILED: need_to_discover_cone not active");
+		ROS_INFO_COND(do_debug_strategy_, "[DiscoverCone::tick] FAILED: need_to_discover_cone not active");
 		return FAILED;
 	}
 
 	if (count_ObjectDetector_msgs_received_ <= 0) {
-		ROS_INFO("[DiscoverCone::tick] FAILED: no ConeDetector messages received");
+		ROS_INFO_COND(do_debug_strategy_, "[DiscoverCone::tick] FAILED: no ConeDetector messages received");
 		return FAILED; // No data yet.
 	}
 
 	if (last_ObjectDetector_msg_.object_detected) {
-		ROS_INFO("[DiscoverCone::tick] SUCCESS: object detected");
+		ROS_INFO_COND(do_debug_strategy_, "[DiscoverCone::tick] SUCCESS: object detected");
 		ros::param::set("/strategy/need_to_discover_cone", false);
 		odometry_capturered_ = false;
 		state_ = kCAPTURE_ODOMETRY;
@@ -181,7 +183,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 
 	goal_status.text = ss.str();
 	strategy_status_publisher_.publish(goal_status);
-	ROS_INFO("[DiscoverCone::tick] %s", ss.str().c_str());
+	ROS_INFO_COND(do_debug_strategy_, "[DiscoverCone::tick] %s", ss.str().c_str());
 
 	return result;
 }

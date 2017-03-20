@@ -1,4 +1,4 @@
-// Copyright <YEAR> <COPYRIGHT HOLDER>
+// Copyright 2017 Michael Wimble
 
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
@@ -22,6 +22,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <cassert>
 #include <ros/ros.h>
 #include <ros/console.h>
 #include <actionlib_msgs/GoalStatus.h>
@@ -127,17 +128,19 @@ int main(int argc, char** argv) {
     } GOAL;
 
     GOAL current_goal;
+    bool do_debug_strategy;
     StrategyFn::RESULT_T result;
 
     ros::NodeHandle nh("~");
 
+	assert(ros::param::get("~do_debug_strategy", do_debug_strategy));
     ros::Publisher strategyStatusPublisher = nh.advertise<actionlib_msgs::GoalStatus>("/cone_strategy", 1);
 
     ros::Rate rate(10); // Loop rate
 
     DiscoverCone& discover_cone = DiscoverCone::singleton();
     MoveToCone& move_to_cone = MoveToCone::singleton();
-	ROS_INFO("[robo_magellan_node] New goal: DiscoverCone");
+	ROS_INFO_COND(do_debug_strategy, "[robo_magellan_node] New goal: DiscoverCone");
 
     behaviors.push_back(&DiscoverCone::singleton());
     behaviors.push_back(&MoveToCone::singleton());
@@ -153,7 +156,7 @@ int main(int argc, char** argv) {
             case kDISCOVER_CONE:
             	current_goal = kMOVE_TO_CONE;
             	ros::param::set(move_to_cone.goalRequestParam(), true);
-            	ROS_INFO("[robo_magellan_node] New goal: MoveToCone");
+            	ROS_INFO_COND(do_debug_strategy, "[robo_magellan_node] New goal: MoveToCone");
                 break;
 
             case kMOVE_TO_CONE:
@@ -161,7 +164,7 @@ int main(int argc, char** argv) {
 	            return 0;
 
             default:
-                ROS_INFO("[robo_magellan_node] !!! INVALID CURRENT GOAL");
+                ROS_ERROR("[robo_magellan_node] !!! INVALID CURRENT GOAL");
                 return -1;
             }
 
