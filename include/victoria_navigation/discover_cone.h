@@ -94,6 +94,8 @@ private:
 public:
 	RESULT_T tick();
 
+	string goalRequestParam() { return "/strategy/need_to_discover_cone"; }
+
 	string name() { return string("DiscoverCone"); };
 
 	static DiscoverCone& singleton();

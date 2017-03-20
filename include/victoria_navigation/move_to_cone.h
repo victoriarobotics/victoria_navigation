@@ -76,6 +76,8 @@ private:
 public:
 	RESULT_T tick();
 
+	string goalRequestParam() { return "/strategy/need_to_move_cone"; }
+
 	string name() { return string("MoveToCone"); };
 
 	static MoveToCone& singleton();

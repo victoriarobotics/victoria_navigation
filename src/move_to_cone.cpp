@@ -75,7 +75,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 	ostringstream 				ss;
 
 	bool need_to_move_to_cone;
-	if (!ros::param::get("/strategy/need_to_move_cone", need_to_move_to_cone) || (!need_to_move_to_cone)) {
+	if (!ros::param::get(goalRequestParam(), need_to_move_to_cone) || (!need_to_move_to_cone)) {
 		ROS_INFO("[MoveToCone::tick] FAILED: need_to_move_to_cone not active");
 		return FAILED;
 	}
@@ -95,7 +95,8 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 	goal_status.status = actionlib_msgs::GoalStatus::ACTIVE;
 
 	if (state_ == kMOVING_TO_CENTERING_POSITION) {
-		if (last_object_detected_.object_area > (last_object_detected_.image_width * last_object_detected_.image_width / 2)) {
+		long threshold_area = (last_object_detected_.image_height * last_object_detected_.image_width / 2);
+		if (last_object_detected_.object_area > threshold_area) {
 			//### Fake test to stop when close.
 			cmd_vel.linear.x = 0;
 			cmd_vel.angular.z = 0;
@@ -103,6 +104,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			ss << "[MoveToCone::tick]";
 			ss << " close, STOP";
 			ss << ", area: " << last_object_detected_.object_area;
+			ss << ", threshold_area: " << threshold_area;
 			resetGoal();
 			result = SUCCESS;
 		} else {
@@ -120,7 +122,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			} else {
 				// Turn towards cone.
 				cmd_vel.linear.x = 0.2; //### Arbitrary.
-				cmd_vel.angular.z =- ((image_width / 2.0) - last_object_detected_.object_x) / last_object_detected_.image_width;
+				cmd_vel.angular.z = ((image_width / 2.0) - last_object_detected_.object_x) / last_object_detected_.image_width;
 				cmd_vel_pub_.publish(cmd_vel);
 				ss << "[MoveToCone::tick]";
 				ss << " turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;

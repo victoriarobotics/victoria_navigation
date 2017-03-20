@@ -37,8 +37,20 @@ add_executable(cone_finder_strategy_node
 	src/strategy_fn.cpp
 )
 
+add_executable(robo_magellan_node
+	src/robo_magellan_node.cpp
+	src/discover_cone.cpp
+	src/move_to_cone.cpp
+	src/strategy_fn.cpp
+)
+
 target_link_libraries(
   cone_finder_strategy_node
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(
+  robo_magellan_node
   ${catkin_LIBRARIES}
 )
 

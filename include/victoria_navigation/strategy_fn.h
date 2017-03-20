@@ -33,6 +33,9 @@ public:
 
 	// Perform strategy.
 	virtual RESULT_T tick() = 0;
+
+	// Get string needed to initiate the goal.
+	virtual string goalRequestParam() = 0;
 };
 
 #endif

@@ -93,7 +93,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	ostringstream 				ss;
 
 	bool need_to_discover_cone;
-	if (!ros::param::get("/strategy/need_to_discover_cone", need_to_discover_cone) || (!need_to_discover_cone)) {
+	if (!ros::param::get(goalRequestParam(), need_to_discover_cone) || (!need_to_discover_cone)) {
 		ROS_INFO("[DiscoverCone::tick] FAILED: need_to_discover_cone not active");
 		return FAILED;
 	}
