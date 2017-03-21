@@ -5,35 +5,17 @@
 
 	<arg name="do_debug_strategy" default="true" doc="Enable info traces related to strategy code" />
 
-	<arg name="doGps" default="true" doc="Enable the GPS?" />
-	<arg name="doMotor" default="true" doc="Enable the motors?" />
-
 	<arg name="cmd_vel_topic_name" default="/cmd_vel" doc="cmd_vel topic name" />
 	<arg name="cone_detector_topic_name" default="/cone_detector" doc="cone_detector topic name" />
 	<arg name="image_topic_name" default="/usb_cam/image_raw" doc="topic name published by camera" />
 	<arg name="odometry_topic_name" default="/odom" doc="odometry topic name" />
 	<arg name="show_debug_windows" default="true" doc="true => show parameter window for cone detector" />
-
-	<node if="$(arg doGps)" pkg="nmea_navsat_driver" name="nmea_topic_serial_reader_node" type="nmea_topic_serial_reader" respawn="true" output="screen" >
-		<param name="port" value="/dev/gps1" />
-		<param name="baud" value="38400" />
-	</node>
-
-	<node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
-      	<param name="video_device" value="/dev/video0" />
-		<param name="image_width" value="640" />
-		<param name="image_height" value="480" />
-		<param name="pixel_format" value="yuyv" />
-		<param name="camera_frame_id" value="usb_cam" />
-		<param name="io_method" value="mmap"/>
-	</node>
-
-
+	
 	<include file="$(find victoria_perception)/launch/cone_detector.launch">
 		<arg name="image_transport" value="compressed" />
 		<arg name="image_topic_name" value="$(arg image_topic_name)" />
 		<arg name="show_debug_windows" value="$(arg show_debug_windows)" />
-    </include>
+    	</include>
 
   <node pkg="victoria_navigation" name="robo_magellan_node" type="robo_magellan_node" respawn="false" output="screen" launch-prefix="$(arg launchPrefix)" >
   	<param name="cmd_vel_topic_name" value="$(arg cmd_vel_topic_name)" />
@@ -42,7 +24,4 @@
   	<param name="odometry_topic_name" value="$(arg odometry_topic_name)" />
   </node>
 
-    <node if="$(arg doMotor)" pkg="farryn_controller" name="motor_controller_node" type="farryn_controller_node" output="screen">
-        <rosparam command="load" file="$(find farryn_controller)/cfg/farryn_controller.yaml"/>
-    </node>
 </launch>
