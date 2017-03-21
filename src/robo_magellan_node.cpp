@@ -119,7 +119,7 @@ StrategyFn::RESULT_T doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& 
 }
 
 int main(int argc, char** argv) {
-    ros::init(argc, argv, "cone_finder_strategy_node");
+    ros::init(argc, argv, "robo_magellan_node");
 
     // ROS node handle.
     typedef enum {
