@@ -148,7 +148,6 @@ int main(int argc, char** argv) {
     // Set initial goal
     current_goal = kDISCOVER_CONE;
     ros::param::set(discover_cone.goalRequestParam(), true);
-
     while (ros::ok()) {
         result = doStrategy(behaviors, strategyStatusPublisher);
         if (result == StrategyFn::SUCCESS) {
