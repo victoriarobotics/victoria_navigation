@@ -9,3 +9,8 @@ const char* StrategyFn::RESULT_STR[] = {
 		"SUCCESS",
 		"UNUSED_END"
 };
+
+const string StrategyFn::g_empty_string = "";
+vector<StrategyFn::GOAL_T> StrategyFn::g_goal_stack_;
+vector<StrategyFn::GPS_POINT> StrategyFn::g_point_stack;
+StrategyFn::RESULT_T StrategyFn::g_last_goal_result_;

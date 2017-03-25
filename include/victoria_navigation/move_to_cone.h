@@ -38,36 +38,26 @@ private:
 		kMOVING_TO_TOUCH
 	} STATE;
 
-	// ROS node handle.
-	ros::NodeHandle nh_;
-
 	// Parameters.
 	string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
 	string cone_detector_topic_name_;	// Topic name containing cone_detector message
-	bool do_debug_strategy_;			// Emit info traces to help debug code.
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
-	ros::Publisher current_strategy_pub_;
-	ros::Publisher strategy_status_publisher_;
 
 	// Subscribers.
 	ros::Subscriber	cone_detector_sub_;
 
 	// Algorithm variables.
-	string last_reported_strategy_;
 	STATE state_;
 	
 	// Process one cone detector topic message.
-	long int object_detections_received_;
+	long int count_ObjectDetector_msgs_received_;
 	victoria_perception::ObjectDetector last_object_detected_;
 	void coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg);
 
 	// Reset goal. After this, someone must request the goal again and it will start over.
 	void resetGoal();
-
-	// Publish current strategy (if changed).
-	void publishCurrentStragety(string strategy);
 
 	// Singleton pattern.
 	MoveToCone();
@@ -77,7 +67,7 @@ private:
 public:
 	RESULT_T tick();
 
-	string goalRequestParam() { return "/strategy/need_to_move_cone"; }
+	string goalName() { return "/strategy/need_to_move_cone"; }
 
 	string name() { return string("MoveToCone"); };
 

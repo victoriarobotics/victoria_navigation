@@ -24,7 +24,6 @@
 
 #include <cassert>
 #include <ros/ros.h>
-#include <actionlib_msgs/GoalStatus.h>
 #include <geometry_msgs/Twist.h>
 #include <math.h>
 #include <std_msgs/String.h>
@@ -40,12 +39,9 @@ DiscoverCone::DiscoverCone() :
 {
 	assert(ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_));
 	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
-	assert(ros::param::get("~do_debug_strategy", do_debug_strategy_));
 	assert(ros::param::get("~odometry_topic_name", odometry_topic_name_));
 	
 	cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_name_.c_str(), 1);
-	current_strategy_pub_ = nh_.advertise<std_msgs::String>("current_strategy", 1, true /* latched */);
-	strategy_status_publisher_ = nh_.advertise<actionlib_msgs::GoalStatus>("/strategy", 1);
 
 	cone_detector_sub_ = nh_.subscribe(cone_detector_topic_name_, 1, &DiscoverCone::coneDetectorCb, this);
 	odometry_sub_ = nh_.subscribe(odometry_topic_name_, 1, &DiscoverCone::odometryCb, this);
@@ -72,48 +68,37 @@ void DiscoverCone::odometryCb(const nav_msgs::OdometryConstPtr& msg) {
 	count_Odometry_msgs_received_++;	
 }
 
-void DiscoverCone::publishCurrentStragety(string strategy) {
-	std_msgs::String msg;
-	msg.data = strategy;
-	if (strategy != last_reported_strategy_) {
-		last_reported_strategy_ = strategy;
-		current_strategy_pub_.publish(msg);
-		ROS_INFO_COND(do_debug_strategy_, "[DiscoverCone] strategy: %s", strategy.c_str());
-	}
-}
-
 void DiscoverCone::resetGoal() {
 	odometry_capturered_ = false;
 	state_ = kCAPTURE_ODOMETRY;
-	ros::param::set("/strategy/need_to_discover_cone", false);
 }
 
 StrategyFn::RESULT_T DiscoverCone::tick() {
 	geometry_msgs::Twist		cmd_vel;
-	actionlib_msgs::GoalStatus 	goal_status;
 	RESULT_T 					result = FATAL;
 	ostringstream 				ss;
+	bool goal_set;
 
-	bool need_to_discover_cone;
-	if (!ros::param::get(goalRequestParam(), need_to_discover_cone) || (!need_to_discover_cone)) {
-		ROS_INFO_COND(do_debug_strategy_, "[DiscoverCone::tick] FAILED: need_to_discover_cone not active");
+	if (StrategyFn::currentGoalName() != goalName()) {
 		return FAILED;
 	}
 
 	if (count_ObjectDetector_msgs_received_ <= 0) {
-		ROS_INFO_COND(do_debug_strategy_, "[DiscoverCone::tick] FAILED: no ConeDetector messages received");
-		return FAILED; // No data yet.
+		ss << " FAILED, no ConeDetector messages received";
+		publishStrategyProgress("DiscoverCone::tick", ss.str());
+		return setGoalResult(FAILED); // No data yet.
 	}
 
 	if (last_ObjectDetector_msg_.object_detected) {
-		ROS_INFO_COND(do_debug_strategy_, "[DiscoverCone::tick] SUCCESS: object detected");
-		ros::param::set("/strategy/need_to_discover_cone", false);
-		odometry_capturered_ = false;
-		state_ = kCAPTURE_ODOMETRY;
+		resetGoal();
 		cmd_vel.linear.x = 0;
 		cmd_vel.angular.z = 0.0;
 		cmd_vel_pub_.publish(cmd_vel);
-		return SUCCESS; // Cone found.
+		ss << " SUCCESS Object detected, STOP";
+		ss << ", area: " << last_ObjectDetector_msg_.object_area;
+		publishStrategyProgress("DiscoverCone::tick", ss.str());
+		popGoal();
+		return setGoalResult(SUCCESS); // Cone found.
 	}
 
 	// We have begun to receive ConeDetector messages but have not yet seen the cone.
@@ -125,10 +110,6 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	// publishing Odometry message. An alternate strategy would be to just begin rotation
 	// and, knowing how fast the robot should be rotating, to stop when the robot should
 	// have completed at least one 360 degree rotation.
-
-	goal_status.goal_id.stamp = ros::Time::now();
-	goal_status.goal_id.id = "DiscoverCone";
-	goal_status.status = actionlib_msgs::GoalStatus::ACTIVE;
 
 	if (state_ == kCAPTURE_ODOMETRY) {
 		// Looking for an Odometry message so we can capture the heading at the start of the search.
@@ -181,11 +162,9 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		}
 	}
 
-	goal_status.text = ss.str();
-	strategy_status_publisher_.publish(goal_status);
-	ROS_INFO_COND(do_debug_strategy_, "[DiscoverCone::tick] %s", ss.str().c_str());
+	publishStrategyProgress("DiscoverCone::tick", ss.str());
 
-	return result;
+	return setGoalResult(result);
 }
 
 DiscoverCone& DiscoverCone::singleton() {

@@ -20,15 +20,18 @@
   <depend>frontier_exploration</depend>
   <depend>geometry_msgs</depend>
   <depend>gmapping</depend>
+  <depend>gps_common</depend>
   <depend>map_server</depend>
   <depend>move_base</depend>
   <depend>navfn</depend>
   <depend>roscpp</depend>
   <depend>roslaunch</depend>
   <depend>rospy</depend>
+  <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>depthimage_to_laserscan</depend>
   <depend>victoria_perception</depend>
+  <depend>yaml-cpp</depend>
   <export>
   </export>
 </package>

@@ -29,7 +29,10 @@
 
 #include "victoria_navigation/discover_cone.h"
 #include "victoria_navigation/move_to_cone.h"
+#include "victoria_navigation/seek_to_gps.h"
+#include "victoria_navigation/solve_robomagellan.h"
 #include "victoria_navigation/strategy_exception.h"
+#include "victoria_navigation/strategy_fn.h"
 #include <stdint.h>
 
 int debug_last_message = 0; // So that we only emit messages when things change.
@@ -70,7 +73,7 @@ uint8_t resultToStatus(StrategyFn::RESULT_T result) {
     return actionlib_msgs::GoalStatus::LOST;
 }
 
-StrategyFn::RESULT_T doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPublisher) {
+void doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPublisher) {
     actionlib_msgs::GoalStatus goalStatus;
     StrategyFn::RESULT_T result = StrategyFn::FATAL;
     ros::Rate rate(10); // Loop rate
@@ -94,7 +97,7 @@ StrategyFn::RESULT_T doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& 
 
                 if (result == StrategyFn::FATAL) {
                     ROS_INFO_STREAM("[_strategy_node] function: " << ((*it)->name()) << ", FATAL result, exiting");
-                    return result;
+                    return;
                 }
 
                 if (result == StrategyFn::RUNNING) {
@@ -102,7 +105,12 @@ StrategyFn::RESULT_T doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& 
                 }
 
                 if (result == StrategyFn::SUCCESS) {
-                    return result;
+                    if (StrategyFn::goalStackEmpty()) {
+                        ROS_INFO("[robo_magellan_strategy_node] WOO HOO! SUCCESS!");
+                        return;
+                    } else {
+                        continue;
+                    }
                 }
 
                 if (result == StrategyFn::FAILED) {
@@ -114,8 +122,6 @@ StrategyFn::RESULT_T doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& 
             // Do nothing.
         }
     }
-
-    return result;
 }
 
 int main(int argc, char** argv) {
@@ -138,42 +144,19 @@ int main(int argc, char** argv) {
 
     ros::Rate rate(10); // Loop rate
 
-    DiscoverCone& discover_cone = DiscoverCone::singleton();
-    MoveToCone& move_to_cone = MoveToCone::singleton();
-	ROS_INFO_COND(do_debug_strategy, "[robo_magellan_node] New goal: DiscoverCone");
-
     behaviors.push_back(&DiscoverCone::singleton());
     behaviors.push_back(&MoveToCone::singleton());
+    behaviors.push_back(&SeekToGps::singleton());
+    behaviors.push_back(&SolveRobomMagellan::singleton());
 
-    // Set initial goal
-    current_goal = kDISCOVER_CONE;
-    ros::param::set(discover_cone.goalRequestParam(), true);
-    while (ros::ok()) {
-        result = doStrategy(behaviors, strategyStatusPublisher);
-        if (result == StrategyFn::SUCCESS) {
-            switch (current_goal) {
-            case kDISCOVER_CONE:
-            	current_goal = kMOVE_TO_CONE;
-            	ros::param::set(move_to_cone.goalRequestParam(), true);
-            	ROS_INFO_COND(do_debug_strategy, "[robo_magellan_node] New goal: MoveToCone");
-                break;
+    ros::ServiceClient coneDetectorAnnotatorService = nh.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
 
-            case kMOVE_TO_CONE:
-	            ROS_INFO("YAY SUCCESS");
-	            return 0;
-
-            default:
-                ROS_ERROR("[robo_magellan_node] !!! INVALID CURRENT GOAL");
-                return -1;
-            }
-
-        } else if (result == StrategyFn::FAILED) {
-            continue;
-        } else {
-            ROS_INFO("BOO FAILURE");
-            return -1;
-        }
-    }
+    // Set the initial problem to be solved.
+    StrategyFn::pushGoal(SolveRoboMagellan::singleton().goalName(), "0");
+    //StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
+   
+    // Attempt to solve the problem.
+    doStrategy(behaviors, strategyStatusPublisher, coneDetectorAnnotatorService);
 
     return 0;
 }
