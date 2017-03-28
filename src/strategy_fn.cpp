@@ -4,7 +4,7 @@ const char* StrategyFn::RESULT_STR[] = {
 		"UNUSED_START",
 		"FAILED",
 		"FATAL",
-		"RESTART_LOOP",
+		"INACTIVE",
 		"RUNNING",
 		"SUCCESS",
 		"UNUSED_END"
@@ -12,5 +12,5 @@ const char* StrategyFn::RESULT_STR[] = {
 
 const string StrategyFn::g_empty_string = "";
 vector<StrategyFn::GOAL_T> StrategyFn::g_goal_stack_;
-vector<StrategyFn::GPS_POINT> StrategyFn::g_point_stack;
+vector<StrategyFn::GPS_POINT> StrategyFn::g_point_stack_;
 StrategyFn::RESULT_T StrategyFn::g_last_goal_result_;

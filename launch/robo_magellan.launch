@@ -7,6 +7,7 @@
 	<arg name="camera_name" default="primesense_camera" doc="Name of camera, to get properties" />
 	<arg name="do_erode_dilate" default="true" doc="true => do erode/dilate step" />
 	<arg name="fps" default="10" doc="Max frames per second to report object detection results" />
+	<arg name="gps_close_distance_meters" default="2.0" doc="How close to get to a point using GPS to be considered 'close enough'" />
 	<arg name="image_topic_name" default="/usb_cam/image_raw" doc="topic name published by camera" />
 	<arg name="image_transport" default="compressed" doc="image transport (e.g., compressed) to be used" />
 	<arg name="resize_x" default="320" doc="Image will be resized to this many columns" />
@@ -62,6 +63,7 @@
 	  	<param name="cone_detector_topic_name" value="$(arg cone_detector_topic_name)" />
 	  	<param name="do_debug_strategy" value="$(arg do_debug_strategy)" />
 	  	<param name="fix_topic_name" value="$(arg fix_topic_name)" />
+	  	<param name="gps_close_distance_meters" value="$(arg gps_close_distance_meters)" />
 	  	<param name="imu_topic_name" value="$(arg imu_topic_name)" />
 	  	<param name="magnetic_declination" value="$(arg magnetic_declination)" />
 	  	<param name="odometry_topic_name" value="$(arg odometry_topic_name)" />

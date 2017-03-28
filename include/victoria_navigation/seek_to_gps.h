@@ -38,23 +38,74 @@
 #include "victoria_perception/ObjectDetector.h"
 #include "victoria_navigation/strategy_fn.h"
 
+// A behavior that attempts to get close to a GPS waypoint.
+//
+// The goal waypoint is at the top of the g_point_stack_.
+//
+// The behavior will attemptm to get "close enough" to the waypoint. By "close enough" is meant:
+//		* If the waypoint DOES NOT have a cone, try to get within the parameter "gps_close_distance_meters"
+//		  of the target GPS location.
+//		* If the waypoint DOES have a cone, also try to get within "gps_close_distance_meters" but
+//		  if a cone is detected before that, stop where it is detected.
+//
+// The behavior depends on a few other components and parameters..
+//		* "cone_detector_topic_name" is a topic listened to for an indication if a RoboMagellan cone is detected.
+//		* "cmd_vel_topic_name" defines a topic to be used for moving the robot. Messages will be published
+//		  to that topic. The robot will end up in a stopped state at the end of this behavior.
+//		* "fix_topic_name" defines a topic lined to for the current GPS of the robot. It should be published
+//		  frequently enough so that the robot won't veer dangerously close to the target before it gets
+//		  another GPS fix report.
+//		* "gps_close_distance_meters" defines the distance tolerance for being "close enough" to a waypoint.
+//		* "imu_topic_name" defines a topic that MIGHT be listened to in order to determine the current
+//		  heading. This is controlled by the "use_imu" parameter. If it is true, the IMU will be consulted.
+//		  If it is false, the Odometry will be consulted.
+//		* The Imu messages are assumed to be relative to magnetic north. This parameter gives the
+//		  correction value to convert the orientation to true north, as used by the GPS.
+//		* "odometry_topic_name" defines a topic the MIGHT be listened to in order to determine the current
+//		  heading. See the discussion of "imu_topic_name" above.
+//		* "use_imu" -- See the discussion of "imu_topic_name" above.
+//
+// The behaviors works as follows:
+//	* Wait until messages are received from the cone detector, Odometry, GPS and IMU.
+//	* If the cone is seen, indicate SUCCESS and stop the robot.
+//  * The first time the behavior is attempted on the waypoint, setup to rotate towards the goal
+//	  waypoint. This orientation will happen again whenever the robot seems to have veered too
+//	  far from a straight line course. Having rotated, attempt to move in a straight line to the
+//	  waypoint.
+//	* If the robot is "close enough" to the goal waypoint, indicate SUCCESS and stop the robot.
+//	* Otherwise, keep moving towards the waypoint. If the robot heading veers too far from the
+//	  waypoint, perform another rotation.
+//
+// POSSIBLE IMPROVEMENTS:
+//	* Compute a sense of heading from the GPS. ROS doesn't publish the GPS heading, and the
+//	  NMEA messages that show heading certainly aren't always timely or even vaguely accurate
+//	  for different GPS sensors and the expected rate of travel of the robot. Given how
+//	  inaccurate the GPS Fix message results are, this may not be particularly useful.
+//	* Perform some sort of fusion between Odometry and Imu for a better sense of heading.
+//	* Have the MoveToCone behavior update the Odometry sense of position, by assuming that
+//	  the Odometry has drifted over time and the GPS Fix is a more accurate indicator of
+//	  pose.
+//	* Detect stale GPS, Odometry and Imu data and deal with it.
+// 	* Only stop when a RoboMagellan cone is detected if that cone is acceptable. Viz., it's the
+//	  appropriate size for the distance and is vaguely in the right direction.
+
 class SeekToGps : public StrategyFn {
 private:
 	typedef enum {
-		kSEEKING_POINT,
-		kSETUP,
-		kROTATING_TO_DISCOVER
+		kSEEKING_POINT,			// Move robot towards the current GPS point.
+		kSETUP,					// Gather initial state before attempting to get close to the GPS point.
+		kROTATING_TO_HEADING
 	} STATE;
 
 	// Parameters.
 	string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
 	string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
 	string fix_topic_name_;				// Topic name containing fix message.
+	double gps_close_distance_meters_;	// How close to seek the point using GPS before assuming it's "close enough".
 	string imu_topic_name_;				// Topic name containing IMU message. Used only if use_imu_ => true.
 	double magnetic_declination_;		// Magnetic declination adjustment to be applied to IMU.
 	string odometry_topic_name_;		// Topic name containing Odometry message.
 	bool use_imu_;						// True => use IMU instead of Odometry as true robot heading.
-	string waypoint_yaml_path_;			// Path to yaml file containing waypoints.
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
@@ -67,14 +118,11 @@ private:
 
 	// Algorithm variables.
 	double goal_yaw_degrees_;					// Goal heading.
-	long int index_next_point_to_seek_;			// Index into list of GPS points to seek to next.
-	bool odometry_capturered_;					// Odometry message has been captured.
 	geometry_msgs::Quaternion previous_pose_;	// Pose from last Odometry message.
 	nav_msgs::Odometry starting_Odometry_msg_;	// Odometry mesage at start of rotation strategy.
 	double starting_yaw_;						// Starting yaw.
 	double total_rotated_yaw_;					// Integration of rotational yaw since start.
-	STATE state_;
-	YAML::Node waypoints_;						// Waypoints in yaml format.
+	STATE state_;								// State of state machine.
 	double goal_yaw_degrees_delta_threshold_;	// If delta is less than this, don't bother rotating.
 	
 	// Process one ConeDetector topic message.
@@ -97,15 +145,16 @@ private:
 	nav_msgs::Odometry last_Odometry_msg_;
 	void odometryCb(const nav_msgs::OdometryConstPtr& msg);
 
-	// Reset goal. After this, someone must request the goal again and it will start over.
+	// Reset global state so this behavior can be used to solve the next problem.
 	void resetGoal();
 
-	// Normalize an Euler angle into [0..360].
+	// Normalize an Euler angle into [0..360).
 	double normalizeEuler(double yaw);
 
 	static double degrees(double x) { return x * 180.0 / M_PI; }
 	static double radians(double x) { return x * M_PI / 180.0; }
  
+ 	// Calculate bearing between two GPS points--accurate for distances for RoboMagellan.
 	double bearing(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = radians(from.latitude);
 	    double lon1 = radians(from.longitude);
@@ -120,6 +169,7 @@ private:
 	}
 	 
 	 
+ 	// Calculate distance between two GPS points--accurate for distances for RoboMagellan.
 	double distance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = radians(from.latitude);
 	    double lon1 = radians(from.longitude);
@@ -154,7 +204,7 @@ public:
 		switch (state) {
 			case kSEEKING_POINT:					return "kSEEKING_POINT";
 			case kSETUP:							return "kSETUP";
-			case kROTATING_TO_DISCOVER:				return "kROTATING_TO_DISCOVER";
+			case kROTATING_TO_HEADING:				return "kROTATING_TO_HEADING";
 			default:								return "!!UNKNOWN!!";
 		}
 	}

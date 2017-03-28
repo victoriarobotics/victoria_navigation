@@ -80,13 +80,13 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	bool goal_set;
 
 	if (StrategyFn::currentGoalName() != goalName()) {
-		return FAILED;
+		return setGoalResult(INACTIVE);
 	}
 
 	if (count_ObjectDetector_msgs_received_ <= 0) {
-		ss << " FAILED, no ConeDetector messages received";
+		ss << "Waiting on ConeDetector messages received";
 		publishStrategyProgress("DiscoverCone::tick", ss.str());
-		return setGoalResult(FAILED); // No data yet.
+		return setGoalResult(RUNNING); // No data yet.
 	}
 
 	if (last_ObjectDetector_msg_.object_detected) {
@@ -152,8 +152,9 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		ss << ", total_rotated_yaw_: " << total_rotated_yaw_;
 
 		if (total_rotated_yaw_ > (2 * M_PI)) {
-			ss << ", FAIL no cone found after one rotation";
+			ss << ", FAILED no cone found after one rotation";
 			result = FAILED;
+			popGoal();
 			resetGoal();
 		} else {
 			// Keep rotating.
@@ -163,7 +164,6 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	}
 
 	publishStrategyProgress("DiscoverCone::tick", ss.str());
-
 	return setGoalResult(result);
 }
 

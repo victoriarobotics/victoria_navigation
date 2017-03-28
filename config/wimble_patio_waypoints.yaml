@@ -1,6 +1,6 @@
 gps_points:
     - { latitude: 37.356445, longitude: -122.036992, has_cone: false}
-    - { latitude: 37.356393, longitude: -122.036992, has_cone: true}
+    - { latitude: 37.356393, longitude: -122.036992, has_cone: true} # 5.7821m (18.97 ft) at 270 from prev pt.
 #    - { latitude: 37.356428, longitude: -122.037015, has_cone: true}
 # gps_points:
 #   - { latitude: 37.35645, longitude: -122.0373166 }

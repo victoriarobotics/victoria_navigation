@@ -35,44 +35,23 @@
 #include "victoria_navigation/strategy_fn.h"
 #include <stdint.h>
 
-int debug_last_message = 0; // So that we only emit messages when things change.
-
-void logIfChanged(int id, const char* message) {
-    if (id != debug_last_message) {
-        ROS_INFO_STREAM(message);
-        debug_last_message = id;
-    }
-}
-
-vector<StrategyFn*> behaviors;
-
-uint8_t resultToStatus(StrategyFn::RESULT_T result) {
-    switch (result) {
-    case StrategyFn::UNUSED_START:
-        return actionlib_msgs::GoalStatus::LOST;
-
-    case StrategyFn::FAILED:
-        return actionlib_msgs::GoalStatus::ABORTED;
-
-    case StrategyFn::FATAL:
-        return actionlib_msgs::GoalStatus::LOST;
-
-    case StrategyFn::RESTART_LOOP:
-        return actionlib_msgs::GoalStatus::ACTIVE;
-
-    case StrategyFn::RUNNING:
-        return actionlib_msgs::GoalStatus::PENDING;
-
-    case StrategyFn::SUCCESS:
-        return actionlib_msgs::GoalStatus::SUCCEEDED;
-
-    case StrategyFn::UNUSED_END:
-        return actionlib_msgs::GoalStatus::LOST;
-    }
-
-    return actionlib_msgs::GoalStatus::LOST;
-}
-
+// Perform problem solving by iterating over each of the possible problem solvers, a.k.a.
+// behaviors. Each solver is asked if it can solve the current problem. The response is normally
+// either:
+//      *   INACTIVE    => The behavior isn't applicable to the current problem.
+//      *   SUCCESS     => Yes, the behavior solved the problem.
+//      *   RUNNING     => The behavior is working on solving the problem..
+//      *   FATAL       => Something unexpected happened and wasn't handled. Abort everything.
+//
+// When a behavior works on a problem, it can subdivide the problem into sub problems by pushing
+// a new set of problems onto the stack of outstanding problems. When a behavior solves the current
+// problem (i.e., the top of the stasck problem), it is responsible for removing that problem
+// from the stack. When the last problem is solved (i.e., the stack is empty), this node exits.
+//
+// Input:
+//      behaviors                   A list of possible behaviors.
+//      strategyStatusPublisher     A ROS publisher that reports internal strategy progress or information.
+//
 void doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPublisher) {
     actionlib_msgs::GoalStatus goalStatus;
     StrategyFn::RESULT_T result = StrategyFn::FATAL;
@@ -84,42 +63,50 @@ void doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPu
             ros::spinOnce();
 
             for (vector<StrategyFn*>::iterator it = behaviors.begin(); it != behaviors.end(); ++it) {
+                // Ask one of the behaviors to try to solve the current problem.
                 StrategyFn::RESULT_T result = ((*it)->tick)();
+
+                // Generate a report on what just happened, showing what behavior was invoked and its response.
                 goalStatus.goal_id.stamp = ros::Time::now();
-                goalStatus.goal_id.id = "cone_finder_strategy_node";
-                goalStatus.status = resultToStatus(result);
-                goalStatus.text = "[strategy_node] executed: " + ((*it)->name());
+                goalStatus.goal_id.id = "robo_magellan_node";
+                goalStatus.status = actionlib_msgs::GoalStatus::ACTIVE;
+                goalStatus.text = "[strategy_node] executed: " + ((*it)->name()) + ", result: " + StrategyFn::resultToString(result);
                 strategyStatusPublisher.publish(goalStatus);
 
-                if (result == StrategyFn::RESTART_LOOP) {
-                    break; // throw new StrategyException("RESTART_LOOP");
-                }
-
-                if (result == StrategyFn::FATAL) {
-                    ROS_INFO_STREAM("[_strategy_node] function: " << ((*it)->name()) << ", FATAL result, exiting");
-                    return;
-                }
-
-                if (result == StrategyFn::RUNNING) {
+                if (result == StrategyFn::INACTIVE) {
+                    // The behavior wasn't applicable to the goal. 
+                    // Advance to the next behavior to see if it can solve the problem.
                     continue;
                 }
 
-                if (result == StrategyFn::SUCCESS) {
+                if (result == StrategyFn::FATAL) {
+                    // Something bad happened -- kill the problem solver.
+                    ROS_INFO_STREAM("[_strategy_node] function: " << ((*it)->name()) << ", FATAL result, exiting");
+                    return;
+                } else if (result == StrategyFn::RUNNING) {
+                    // The behavior is working on a solution. Advance to the next behavior which
+                    // might also want a crack at solving the problem.
+                    continue;
+                } else if (result == StrategyFn::SUCCESS) {
+                    // The current problem was solved by the behavior.
                     if (StrategyFn::goalStackEmpty()) {
+                        // There are no more problems to be solved, we're done.
                         ROS_INFO("[robo_magellan_strategy_node] WOO HOO! SUCCESS!");
                         return;
                     } else {
-                        continue;
+                        // There are still other problems to be solved. Start again.
+                        break;
                     }
-                }
-
-                if (result == StrategyFn::FAILED) {
+                } else if (result == StrategyFn::FAILED) {
+                    // The current behavior tried by failed to solve the problem.
+                    // Just carry on, giving the problem to the other behaviors.
                     continue;
                 }
             }
         } catch (StrategyException* e) {
-            //ROS_INFO_STREAM("[_strategy_node] StrategyException: " << e->what());
-            // Do nothing.
+            // Nothing currently emits these, so it's a placeholder for future work.
+            // ROS_INFO_STREAM("[_strategy_node] StrategyException: " << e->what());
+            // Do nothing--swallow the exception..
         }
     }
 }
@@ -137,13 +124,15 @@ int main(int argc, char** argv) {
     bool do_debug_strategy;
     StrategyFn::RESULT_T result;
 
+
     ros::NodeHandle nh("~");
 
-	assert(ros::param::get("~do_debug_strategy", do_debug_strategy));
-    ros::Publisher strategyStatusPublisher = nh.advertise<actionlib_msgs::GoalStatus>("/cone_strategy", 1);
+    // A list of all possible problem solvers/subgoals/behaviors.
+    vector<StrategyFn*> behaviors;
 
-    ros::Rate rate(10); // Loop rate
+    ros::Publisher strategyStatusPublisher = nh.advertise<actionlib_msgs::GoalStatus>("/strategy", 1);
 
+    // Add all possible behaviors to the list.
     behaviors.push_back(&DiscoverCone::singleton());
     behaviors.push_back(&MoveToCone::singleton());
     behaviors.push_back(&SeekToGps::singleton());

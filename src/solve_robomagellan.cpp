@@ -79,11 +79,13 @@ SolveRobomMagellan::SolveRobomMagellan() :
 	}
 }
 
+// Capture the lates Fix information.
 void SolveRobomMagellan::fixCb(const sensor_msgs::NavSatFixConstPtr& msg) {
 	last_Fix_msg_ = *msg;
 	count_Fix_msgs_received_++;
 }
 
+// Convert an Euler angle into a range of [0 .. 360).
 double SolveRobomMagellan::normalizeEuler(double yaw_degrees) {
 	double result = yaw_degrees;
 	while (result > 360) result -= 360;
@@ -91,6 +93,7 @@ double SolveRobomMagellan::normalizeEuler(double yaw_degrees) {
 	return result;
 }
 
+// Reset global state so this behavior can be used to solve the next problem.
 void SolveRobomMagellan::resetGoal() {
 	index_next_point_to_seek_ = 0;
 	state_ = SETUP;
@@ -100,23 +103,22 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 	RESULT_T 					result = FATAL;
 	ostringstream 				ss;
 
-	if (StrategyFn::currentGoalName() != goalName()) { //#####
-		ss << "FAILED, goal not active: ";
-		ss << goalName();
-		publishStrategyProgress("SolveRobomMagellan::tick", ss.str());
-		return setGoalResult(FAILED);
+	if (StrategyFn::currentGoalName() != goalName()) {
+		// This is not a problem the behavior can solve.
+		return setGoalResult(INACTIVE);
 	}
 
 	if (count_Fix_msgs_received_ <= 0) {
-		ss << "No Fix messages received";
-		publishStrategyProgress("SolveRobomMagellan::tick", ss.str());
-		return setGoalResult(RUNNING); // No data yet.
+		// Wait until Fix messages are received.
+		return setGoalResult(RUNNING);
 	}
 
 	if (state_ == SETUP) {
+		// Capture the initial state.
 		int point_number = 0;
-		sensor_msgs::NavSatFix previous_point = last_Fix_msg_;
+		sensor_msgs::NavSatFix previous_point = last_Fix_msg_;  // Implied starting point is the current GPS fix.
 		for (YAML::const_iterator yamlPoint = waypoints_["gps_points"].begin(); yamlPoint != waypoints_["gps_points"].end(); yamlPoint++) {
+			// Compute the heading and distance from one point to the next for all points.
 			YAML::Node n = *yamlPoint;
 			GPS_POINT gps_point;
 			gps_point.latitude = n["latitude"].as<double>();
@@ -163,23 +165,86 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 		}
 
 		index_next_point_to_seek_ = 0;
-		pushGpsPoint(gps_points_[0]);
+		pushGpsPoint(gps_points_[index_next_point_to_seek_]);
 		StrategyFn::pushGoal(SeekToGps::singleton().goalName(), "0");
 		state_ = MOVE_TO_GPS_POINT;
-		return setGoalResult(RUNNING);
+		ss << "Setup complete, seeking to first point.";
+		result = RUNNING;
 	} else if (state_ == MOVE_TO_GPS_POINT) {
 		if (lastGoalResult() == SUCCESS) {
-			ROS_INFO("### MOVE_TO_GPS_POINT");
-			popGoal();
-			resetGoal();
-			return setGoalResult(SUCCESS);
+			ROS_INFO("[SolveRobomMagellan::tick] succeeded in SeekToGps for point: %ld", index_next_point_to_seek_);
+			ss << "SeekToGps successful to point: ";
+			ss << index_next_point_to_seek_;
+			if (!gps_points_[index_next_point_to_seek_].has_cone) {
+				state_ = ADVANCE_TO_NEXT_POINT;
+				ss << ", no cone here, advancing to next point.";
+			} else {
+				StrategyFn::pushGoal(DiscoverCone::singleton().goalName(), "0");
+				state_ = FIND_CONE_IN_CAMERA;
+				ss << ", discovering cone.";
+			}
+
+			result = RUNNING;
 		} else {
 			ROS_ERROR("NO BACKTRACK STRATEGY FOR MOVE_TO_GPS_POINT");
 			return setGoalResult(FATAL);
 		}
+	} else if (state_ == FIND_CONE_IN_CAMERA) {
+		if (lastGoalResult() == SUCCESS) {
+			ROS_INFO("[SolveRobomMagellan::tick] succeeded in DiscoverCone for point: %ld", index_next_point_to_seek_);
+			StrategyFn::pushGoal(DiscoverCone::singleton().goalName(), "0");
+			state_ = MOVE_TO_CONE;
+			ss << "DiscoverCone successful for point: ";
+			ss << index_next_point_to_seek_;
+			ss << ", moving towards cone.";
+			result = RUNNING;
+		} else {
+			ROS_ERROR("NO BACKTRACKING FOR FIND_CONE_IN_CAMERA");
+			return setGoalResult(FATAL);
+		}
+	} else if (state_ == MOVE_TO_CONE) {
+		if (lastGoalResult() == SUCCESS) {
+			ROS_INFO("[SolveRobomMagellan::tick] succeeded in MoveToCone for point: %ld", index_next_point_to_seek_);
+			//##### StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
+			state_ = MOVE_FROM_CONE;
+			ss << "MoveToCone successful for point: ";
+			ss << index_next_point_to_seek_;
+			ss << ", moving from cone.";
+			result = RUNNING;
+		} else {
+			ROS_ERROR("NO BACKTRACKING FOR FIND_CONE_IN_CAMERA");
+			return setGoalResult(FATAL);
+		}
+	} else if (state == MOVE_FROM_CONE) {
+		if (lastGoalResult() == SUCCESS) {
+			ROS_INFO("[SolveRobomMagellan::tick] succeeded in MoveFromCone for point: %ld", index_next_point_to_seek_)
+			state_ = ADVANCE_TO_NEXT_POINT;
+			ss << "MoveFromCone successful for point: ";
+			ss << index_next_point_to_seek_;
+			ss << ", advancing to next point.";
+			state_ = ADVANCE_TO_NEXT_POINT;
+			result = RUNNING;
+	} else if (state_ == ADVANCE_TO_NEXT_POINT) {
+		index_next_point_to_seek_++;
+		if (index_next_point_to_seek_ >= gps_points_.size()) {
+			resetGoal();
+			popGoal();
+			ss << "Completed tour of all points. SUCCESS";
+			result = SUCCESS;
+		} else {
+			pushGpsPoint(gps_points_[index_next_point_to_seek_]);
+			StrategyFn::pushGoal(SeekToGps::singleton().goalName(), "0");
+			state_ = MOVE_TO_GPS_POINT;
+			ss << "Advancing to point: ";
+			ss << index_next_point_to_seek_;
+			result = RUNNING;
+		}
+	} else {
+		ROS_ERROR("INVALID state_ value");
+		return setGoalResult(FATAL);
 	}
-	publishStrategyProgress("SolveRobomMagellan::tick", ss.str());
 
+	publishStrategyProgress("SolveRobomMagellan::tick", ss.str());
 	return setGoalResult(result);
 }
 

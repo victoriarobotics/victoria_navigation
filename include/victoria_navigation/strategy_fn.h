@@ -3,6 +3,7 @@
 
 #include <ros/ros.h>
 #include <actionlib_msgs/GoalStatus.h>
+#include <map>
 #include <std_msgs/String.h>
 #include <string>
 #include <vector>
@@ -31,7 +32,7 @@ public:
 		UNUSED_START = 0,	// Do not use, must be first element.
 		FAILED,				// Strategy failed, do not continue.
 		FATAL,				// Something is fatally wrong.
-		RESTART_LOOP,		// Strategy prempts downstream strategies, go to top of tree.
+		INACTIVE,			// Strategy is not active.
 		RUNNING,			// Strategy is in progress.
 		SUCCESS,			// Strategy succeeded, continue on.
 		UNUSED_END			// Do not use, must be last element.
@@ -40,7 +41,7 @@ public:
 protected:
 	static const char* RESULT_STR[];		// Map RESULT_T enum to string.
 	static vector<GOAL_T> g_goal_stack_;	// Stack of goals to be solved.
-	static vector<GPS_POINT> g_point_stack;	// Stack of goal GPS points, related to g_goal_stack.
+	static vector<GPS_POINT> g_point_stack_;// Stack of goal GPS points, related to g_goal_stack.
 	static const string g_empty_string;		// Singleton empty string.
 	static RESULT_T g_last_goal_result_;	// Last result of current goal tick().
 
@@ -67,6 +68,7 @@ protected:
 	}
 
 	void publishStrategyProgress(string strategy_name, string progress) {
+		static map<string, string> last_progress_message;
 		actionlib_msgs::GoalStatus 	goal_status;
 		ostringstream ss;
 
@@ -108,9 +110,9 @@ public:
 		g_goal_stack_.push_back(GOAL_T(name, param));
 	}
 
-	static const GPS_POINT& currentGpsPoint() { return g_point_stack.back(); }
-	static void popGpsPoint() { g_point_stack.pop_back(); }
-	static void pushGpsPoint(GPS_POINT gps_point) { g_point_stack.push_back(gps_point); }
+	static const GPS_POINT& currentGpsPoint() { return g_point_stack_.back(); }
+	static void popGpsPoint() { g_point_stack_.pop_back(); }
+	static void pushGpsPoint(GPS_POINT gps_point) { g_point_stack_.push_back(gps_point); }
 
 	// Name of strategy.
 	virtual string name() = 0;

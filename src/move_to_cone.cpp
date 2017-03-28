@@ -63,18 +63,31 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 	bool need_to_move_to_cone;
 
 	if (StrategyFn::currentGoalName() != goalName()) {
-		return FAILED;
+		return setGoalResult(INACTIVE);
+	}
+
+	if (false) {
+		//###
+		const GPS_POINT& gps_point = currentGpsPoint();
+		ROS_INFO_COND(do_debug_strategy_,
+					  "[MoveToCone::tick] FAKE SUCCESS"
+					  );
+		popGoal();
+		resetGoal();
+		return setGoalResult(SUCCESS)
+		;
 	}
 
 	if (count_ObjectDetector_msgs_received_ <= 0) {
-		ss << " FAILED, no ConeDetector messages received";
+		ss << "Waiting on ConeDetector messages received";
 		publishStrategyProgress("MoveToCone::tick", ss.str());
-		return setGoalResult(FAILED); // No data yet.
+		return setGoalResult(RUNNING); // No data yet.
 	}
 
 	if (!last_object_detected_.object_detected) {
-		ss << " FAILED, no object detected";
+		ss << "FAILED, no object detected";
 		publishStrategyProgress("MoveToCone::tick", ss.str());
+		popGoal();
 		return setGoalResult(FAILED); // No object found.
 	}
 
@@ -92,7 +105,6 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			popGoal();
 			result = SUCCESS;
 		} else {
-			result = RUNNING;
 			int image_width = last_object_detected_.image_width;
 			int object_x = last_object_detected_.object_x;
 			if (abs((image_width / 2) - object_x) < (image_width / 40)) {
@@ -110,17 +122,18 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 				ss << " turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
 				ss << ", area: " << last_object_detected_.object_area;
 			}
+
+			result = RUNNING;
 		}
 	} else if (state_ == kMOVING_TO_TOUCH) {
-		ROS_ERROR("[MoveToCone::tick] FAILED: Unimplemented state kMOVING_TO_TOUCH");
-		return setGoalResult(FAILED);
+		ROS_ERROR("[MoveToCone::tick] FATAL: Unimplemented state kMOVING_TO_TOUCH");
+		return setGoalResult(FATAL);
 	} else {
-		ROS_ERROR("[MoveToCone::tick] FAILED: invalid state");
-		return setGoalResult(FAILED);
+		ROS_ERROR("[MoveToCone::tick] FATAL: invalid state");
+		return setGoalResult(FATAL);
 	}
 
 	publishStrategyProgress("MoveToCone::tick", ss.str());
-
 	return setGoalResult(result);
 }
 
