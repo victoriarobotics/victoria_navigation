@@ -31,11 +31,26 @@
 #include "victoria_perception/ObjectDetector.h"
 #include "victoria_navigation/strategy_fn.h"
 
+// A behavior that attempts to move to a RoboMagellan cone.
+//
+// The behavior depends on a few other components and parameters..
+//		* "cone_detector_topic_name" is a topic listened to for an indication if a RoboMagellan cone is detected.
+//		* "cmd_vel_topic_name" defines a topic to be used for moving the robot. Messages will be published
+//		  to that topic. The robot will end up in a stopped state at the end of this behavior.
+//
+// The behavior works as follows:
+//	* Wait until messages are received from the cone detecto.
+//  * If the cone is not seen, indicate FAILURE and stop the robot.
+//	* If the cone is not more or less dead ahead, rotate a bit so that it is more centered.
+//	* [TEMPORARY] if the cone is "very close", stop the robot and indicate success.
+//	* [MISSING] If the robot is touching the cone, stop the robot and indicate success.
+//	* Else move the robot forward a bit.
+
 class MoveToCone : public StrategyFn {
 private:
 	typedef enum {
-		kMOVING_TO_CENTERING_POSITION,
-		kMOVING_TO_TOUCH
+		kMOVING_TO_CENTERING_POSITION,	// Rotate so the cone is more or less dead center ahead.
+		kMOVING_TO_TOUCH				// Move forward to touch the cone.
 	} STATE;
 
 	// Parameters.

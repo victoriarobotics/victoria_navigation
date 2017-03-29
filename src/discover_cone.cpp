@@ -34,7 +34,6 @@
 
 DiscoverCone::DiscoverCone() :
 	count_ObjectDetector_msgs_received_(0),
-	odometry_capturered_(false),
 	state_(kCAPTURE_ODOMETRY)
 {
 	assert(ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_));
@@ -51,6 +50,7 @@ DiscoverCone::DiscoverCone() :
 	ROS_INFO("[DiscoverCone] PARAM odometry_topic_name: %s", odometry_topic_name_.c_str());
 }
 
+// Convert an Euler angle into a range of [0 .. 360).
 double DiscoverCone::normalizeEuler(double yaw) {
 	double result = yaw;
 	while (result > 360) result -= 360;
@@ -58,45 +58,57 @@ double DiscoverCone::normalizeEuler(double yaw) {
 	return result;
 }
 
+// Capture the lates ConeDetector information
 void DiscoverCone::coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg) {
 	last_ObjectDetector_msg_ = *msg;
 	count_ObjectDetector_msgs_received_++;
 }
 
+// Capture the lates Odometry information.
 void DiscoverCone::odometryCb(const nav_msgs::OdometryConstPtr& msg) {
 	last_Odometry_msg_ = *msg;
 	count_Odometry_msgs_received_++;	
 }
 
+// Reset global state so this behavior can be used to solve the next problem.
 void DiscoverCone::resetGoal() {
-	odometry_capturered_ = false;
 	state_ = kCAPTURE_ODOMETRY;
 }
 
 StrategyFn::RESULT_T DiscoverCone::tick() {
-	geometry_msgs::Twist		cmd_vel;
-	RESULT_T 					result = FATAL;
-	ostringstream 				ss;
-	bool goal_set;
+	geometry_msgs::Twist		cmd_vel;		// For sending movement commands to the robot.
+	RESULT_T 					result = FATAL;	// Assume fatality in the algorithm.
+	ostringstream 				ss;				// For sending informations messages.
 
 	if (StrategyFn::currentGoalName() != goalName()) {
+		// This is not a problem the behavior can solve.
 		return setGoalResult(INACTIVE);
 	}
 
 	if (count_ObjectDetector_msgs_received_ <= 0) {
-		ss << "Waiting on ConeDetector messages received";
-		publishStrategyProgress("DiscoverCone::tick", ss.str());
-		return setGoalResult(RUNNING); // No data yet.
+		// Wait until ConeDetector messages are received.
+		return setGoalResult(RUNNING);
+	}
+
+	if (count_Odometry_msgs_received_ <= 0) {
+		// Wait until Odometry messages are received.
+		return setGoalResult(RUNNING);
 	}
 
 	if (last_ObjectDetector_msg_.object_detected) {
+		// Success! Stop when a RoboMagellan cone is seen.
 		resetGoal();
-		cmd_vel.linear.x = 0;
+
+		cmd_vel.linear.x = 0;	// Stop motion.
 		cmd_vel.angular.z = 0.0;
 		cmd_vel_pub_.publish(cmd_vel);
+
+		// Publish information.
 		ss << " SUCCESS Object detected, STOP";
 		ss << ", area: " << last_ObjectDetector_msg_.object_area;
 		publishStrategyProgress("DiscoverCone::tick", ss.str());
+
+		// Standard way to indicate success.
 		popGoal();
 		return setGoalResult(SUCCESS); // Cone found.
 	}
@@ -104,7 +116,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	// We have begun to receive ConeDetector messages but have not yet seen the cone.
 	// Strategy: capture the current heading and begin a slow rotate to see if the
 	// cone is detected in at most one revolution. If not, fail. If so, succeed.
-	//TODO: This relies on receiving an Odometry message recently. No check is made
+	// TODO: This relies on receiving an Odometry message recently. No check is made
 	// for freshness of the message--it's possible the Odometry information is from
 	// a long time ago and no longer relevant. Also, it may be the robot isn't
 	// publishing Odometry message. An alternate strategy would be to just begin rotation
@@ -112,24 +124,12 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	// have completed at least one 360 degree rotation.
 
 	if (state_ == kCAPTURE_ODOMETRY) {
-		// Looking for an Odometry message so we can capture the heading at the start of the search.
-		if (odometry_capturered_) {
-			// Shouldn't get to this point. Still, just go on to the begin-rotation strategy.
-			state_ = kROTATING_TO_DISCOVER;
-			ss << "WARN strange state--in kCAPTURE_ODOMETRY but odometry_capturered_ already true";
-		} else if (count_Odometry_msgs_received_ > 0) {
-			starting_Odometry_msg_ = last_Odometry_msg_;
-			previous_pose_ = last_Odometry_msg_.pose.pose.orientation;
-			starting_yaw_ = normalizeEuler(tf::getYaw(starting_Odometry_msg_.pose.pose.orientation));
-			total_rotated_yaw_ = 0;
-			odometry_capturered_ = true;
-			state_ = kROTATING_TO_DISCOVER;	// We have a starting orientation, go to the begin-rotation strategy.
-			ss << "got Odometry, begin rotation";
-		} else {
-			// Waiting for Odometry messages to show up.
-			ss << "waiting for Odometry messages to be received";
-		}
-
+		starting_Odometry_msg_ = last_Odometry_msg_;
+		previous_pose_ = last_Odometry_msg_.pose.pose.orientation;
+		starting_yaw_ = normalizeEuler(tf::getYaw(starting_Odometry_msg_.pose.pose.orientation));
+		total_rotated_yaw_ = 0;
+		state_ = kROTATING_TO_DISCOVER;	// We have a starting orientation, go to the begin-rotation strategy.
+		ss << "Got Odometry, begin rotation";
 		result = RUNNING;
 	} else if (state_ == kROTATING_TO_DISCOVER) {
 		// No cone yet discovered (it would have been handled above), so rotate a bit if not already

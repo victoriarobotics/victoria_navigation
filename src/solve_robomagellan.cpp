@@ -212,18 +212,22 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 			ss << ", moving from cone.";
 			result = RUNNING;
 		} else {
-			ROS_ERROR("NO BACKTRACKING FOR FIND_CONE_IN_CAMERA");
+			ROS_ERROR("NO BACKTRACKING FOR MOVE_TO_CONE");
 			return setGoalResult(FATAL);
 		}
-	} else if (state == MOVE_FROM_CONE) {
+	} else if (state_ == MOVE_FROM_CONE) {
 		if (lastGoalResult() == SUCCESS) {
-			ROS_INFO("[SolveRobomMagellan::tick] succeeded in MoveFromCone for point: %ld", index_next_point_to_seek_)
+			ROS_INFO("[SolveRobomMagellan::tick] succeeded in MoveFromCone for point: %ld", index_next_point_to_seek_);
 			state_ = ADVANCE_TO_NEXT_POINT;
 			ss << "MoveFromCone successful for point: ";
 			ss << index_next_point_to_seek_;
 			ss << ", advancing to next point.";
 			state_ = ADVANCE_TO_NEXT_POINT;
 			result = RUNNING;
+		} else {
+			ROS_ERROR("NO BACKTRACKING FOR MOVE_FROM_CONE");
+			return setGoalResult(FATAL);
+		}
 	} else if (state_ == ADVANCE_TO_NEXT_POINT) {
 		index_next_point_to_seek_++;
 		if (index_next_point_to_seek_ >= gps_points_.size()) {

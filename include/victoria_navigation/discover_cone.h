@@ -34,11 +34,31 @@
 #include "victoria_perception/ObjectDetector.h"
 #include "victoria_navigation/strategy_fn.h"
 
+// A behavior that attempts to discover a RoboMagellan cone in the camera.
+//
+// The behavior depends on a few other components and parameters..
+//		* "cone_detector_topic_name" is a topic listened to for an indication if a RoboMagellan cone is detected.
+//		* "cmd_vel_topic_name" defines a topic to be used for moving the robot. Messages will be published
+//		  to that topic. The robot will end up in a stopped state at the end of this behavior.
+//		* "odometry_topic_name" defines a topic the MIGHT be listened to in order to determine the current
+//		  heading. See the discussion of "imu_topic_name" above.
+//
+// The behavior works as follows:
+//	* Wait until messages are received from the cone detector and Odometry.
+//  * If the cone is seen, indicate SUCCESS and stop the robot.
+//	* The first time this behavior is attempted, capture the current Odometry. This will be used
+//	  to detect when a complete revolution has been made.
+//	* If the robot hasn't yet made a complete revolution, rotate a bit.
+//
+// POSSIBLE IMPROVEMENTS:
+//	* Find all cones in a complete rotation and choose the best.
+//	* Choose the cone that is closest to the expected heading.
+
 class DiscoverCone : public StrategyFn {
 private:
 	typedef enum {
-		kCAPTURE_ODOMETRY,
-		kROTATING_TO_DISCOVER
+		kCAPTURE_ODOMETRY,		// Capture the current Odometry.
+		kROTATING_TO_DISCOVER	// Rotate until a RoboMagellan cone is discovered.
 	} STATE;
 
 	// Parameters.
@@ -54,7 +74,6 @@ private:
 	ros::Subscriber odometry_sub_;
 
 	// Algorithm variables.
-	bool odometry_capturered_;					// Odometry message has been captured.
 	geometry_msgs::Quaternion previous_pose_;	// Pose from last Odometry message.
 	nav_msgs::Odometry starting_Odometry_msg_;	// Odometry mesage at start of rotation strategy.
 	double starting_yaw_;						// Starting yaw.

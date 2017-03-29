@@ -65,7 +65,7 @@
 //		  heading. See the discussion of "imu_topic_name" above.
 //		* "use_imu" -- See the discussion of "imu_topic_name" above.
 //
-// The behaviors works as follows:
+// The behavior works as follows:
 //	* Wait until messages are received from the cone detector, Odometry, GPS and IMU.
 //	* If the cone is seen, indicate SUCCESS and stop the robot.
 //  * The first time the behavior is attempted on the waypoint, setup to rotate towards the goal

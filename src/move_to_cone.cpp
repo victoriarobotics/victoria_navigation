@@ -46,47 +46,45 @@ MoveToCone::MoveToCone() :
 	ROS_INFO("[MoveToCone] PARAM cone_detector_topic_name: %s", cone_detector_topic_name_.c_str());
 }
 
-void MoveToCone::resetGoal() {
-	state_ = kMOVING_TO_CENTERING_POSITION;
-}
-
+// Capture the lates ConeDetector information
 void MoveToCone::coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg) {
 	last_object_detected_ = *msg;
 	count_ObjectDetector_msgs_received_++;
 }
 
-StrategyFn::RESULT_T MoveToCone::tick() {
-	geometry_msgs::Twist		cmd_vel;
-	RESULT_T 					result = FATAL;
-	ostringstream 				ss;
+// Reset global state so this behavior can be used to solve the next problem.
+void MoveToCone::resetGoal() {
+	state_ = kMOVING_TO_CENTERING_POSITION;
+}
 
-	bool need_to_move_to_cone;
+StrategyFn::RESULT_T MoveToCone::tick() {
+	geometry_msgs::Twist		cmd_vel;		// For sending movement commands to the robot.
+	RESULT_T 					result = FATAL;	// Assume fatality in the algorithm.
+	ostringstream 				ss;				// For sending informations messages.
 
 	if (StrategyFn::currentGoalName() != goalName()) {
+		// This is not a problem the behavior can solve.
 		return setGoalResult(INACTIVE);
 	}
 
-	if (false) {
-		//###
-		const GPS_POINT& gps_point = currentGpsPoint();
-		ROS_INFO_COND(do_debug_strategy_,
-					  "[MoveToCone::tick] FAKE SUCCESS"
-					  );
-		popGoal();
-		resetGoal();
-		return setGoalResult(SUCCESS)
-		;
-	}
-
 	if (count_ObjectDetector_msgs_received_ <= 0) {
-		ss << "Waiting on ConeDetector messages received";
-		publishStrategyProgress("MoveToCone::tick", ss.str());
-		return setGoalResult(RUNNING); // No data yet.
+		// Wait until ConeDetector messages are received.
+		return setGoalResult(RUNNING);
 	}
 
 	if (!last_object_detected_.object_detected) {
+		// Failure, lost sight of the cone.
+		resetGoal();
+
+		cmd_vel.linear.x = 0;	// Stop motion.
+		cmd_vel.angular.z = 0.0;
+		cmd_vel_pub_.publish(cmd_vel);
+
+		// Publish information.
 		ss << "FAILED, no object detected";
 		publishStrategyProgress("MoveToCone::tick", ss.str());
+
+		// Standard way to indicate failure.
 		popGoal();
 		return setGoalResult(FAILED); // No object found.
 	}
@@ -102,34 +100,35 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			ss << " SUCCESS Close to object, STOP";
 			ss << ", area: " << last_object_detected_.object_area;
 			ss << ", threshold_area: " << threshold_area;
+			publishStrategyProgress("MoveToCone::tick", ss.str());
 			popGoal();
-			result = SUCCESS;
-		} else {
-			int image_width = last_object_detected_.image_width;
-			int object_x = last_object_detected_.object_x;
-			if (abs((image_width / 2) - object_x) < (image_width / 40)) {
-				// Heading generally in the right direction.
-				cmd_vel.linear.x = 0.15; //### Arbitrary.
-				cmd_vel.angular.z = 0;
-				cmd_vel_pub_.publish(cmd_vel);
-				ss << " go straight, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
-				ss << ", area: " << last_object_detected_.object_area;
-			} else {
-				// Turn towards cone.
-				cmd_vel.linear.x = 0.2; //### Arbitrary.
-				cmd_vel.angular.z = ((image_width / 2.0) - last_object_detected_.object_x) / last_object_detected_.image_width;
-				cmd_vel_pub_.publish(cmd_vel);
-				ss << " turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
-				ss << ", area: " << last_object_detected_.object_area;
-			}
-
-			result = RUNNING;
+			return setGoalResult(SUCCESS);
 		}
+	
+		int image_width = last_object_detected_.image_width;
+		int object_x = last_object_detected_.object_x;
+		if (abs((image_width / 2) - object_x) < (image_width / 40)) {
+			// Heading generally in the right direction.
+			cmd_vel.linear.x = 0.15; //### Arbitrary.
+			cmd_vel.angular.z = 0;
+			cmd_vel_pub_.publish(cmd_vel);
+			ss << "Go straight, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
+			ss << ", area: " << last_object_detected_.object_area;
+		} else {
+			// Turn towards cone.
+			cmd_vel.linear.x = 0.2; //### Arbitrary.
+			cmd_vel.angular.z = ((image_width / 2.0) - last_object_detected_.object_x) / last_object_detected_.image_width;
+			cmd_vel_pub_.publish(cmd_vel);
+			ss << "Turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
+			ss << ", area: " << last_object_detected_.object_area;
+		}
+
+		result = RUNNING;
 	} else if (state_ == kMOVING_TO_TOUCH) {
-		ROS_ERROR("[MoveToCone::tick] FATAL: Unimplemented state kMOVING_TO_TOUCH");
+		ss << "FATAL: Unimplemented state kMOVING_TO_TOUCH";
 		return setGoalResult(FATAL);
 	} else {
-		ROS_ERROR("[MoveToCone::tick] FATAL: invalid state");
+		ss << "FATAL: invalid state";
 		return setGoalResult(FATAL);
 	}
 
