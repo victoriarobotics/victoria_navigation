@@ -68,7 +68,7 @@ SolveRobomMagellan::SolveRobomMagellan() :
 	
 	assert(fix_sub_ = nh_.subscribe(fix_topic_name_, 1, &SolveRobomMagellan::fixCb, this));
 
-	ROS_INFO("[SolveRobomMagellan] PARAM fix_topic_name_: %s", fix_topic_name_.c_str());
+	ROS_INFO("[SolveRobomMagellan] PARAM fix_topic_name: %s", fix_topic_name_.c_str());
 	ROS_INFO("[SolveRobomMagellan] PARAM waypoint_yaml_path: %s", waypoint_yaml_path_.c_str());
 
 	waypoints_ = YAML::LoadFile(waypoint_yaml_path_);
@@ -105,12 +105,12 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 
 	if (StrategyFn::currentGoalName() != goalName()) {
 		// This is not a problem the behavior can solve.
-		return setGoalResult(INACTIVE);
+		return INACTIVE;
 	}
 
 	if (count_Fix_msgs_received_ <= 0) {
 		// Wait until Fix messages are received.
-		return setGoalResult(RUNNING);
+		return RUNNING;
 	}
 
 	if (state_ == SETUP) {
@@ -186,7 +186,7 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 
 			result = RUNNING;
 		} else {
-			ROS_ERROR("NO BACKTRACK STRATEGY FOR MOVE_TO_GPS_POINT");
+			ROS_ERROR("NO BACKTRACK STRATEGY FOR MOVE_TO_GPS_POINT. lastGoalResult: %d", lastGoalResult());
 			return setGoalResult(FATAL);
 		}
 	} else if (state_ == FIND_CONE_IN_CAMERA) {
@@ -234,7 +234,7 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 			resetGoal();
 			popGoal();
 			ss << "Completed tour of all points. SUCCESS";
-			result = SUCCESS;
+			result = setGoalResult(SUCCESS);
 		} else {
 			pushGpsPoint(gps_points_[index_next_point_to_seek_]);
 			StrategyFn::pushGoal(SeekToGps::singleton().goalName(), "0");
@@ -249,7 +249,7 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 	}
 
 	publishStrategyProgress("SolveRobomMagellan::tick", ss.str());
-	return setGoalResult(result);
+	return result;
 }
 
 SolveRobomMagellan& SolveRobomMagellan::singleton() {

@@ -47,15 +47,14 @@ SeekToGps::SeekToGps() :
 	assert(ros::param::get("~imu_topic_name", imu_topic_name_));
 	assert(ros::param::get("~magnetic_declination", magnetic_declination_));
 	assert(ros::param::get("~odometry_topic_name", odometry_topic_name_));
+	assert(ros::param::get("~solve_using_odom", solve_using_odom_));
 	assert(ros::param::get("~use_imu", use_imu_));
 	
 	cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_name_.c_str(), 1);
 
 	assert(cone_detector_sub_ = nh_.subscribe(cone_detector_topic_name_, 1, &SeekToGps::coneDetectorCb, this));
 	assert(fix_sub_ = nh_.subscribe(fix_topic_name_, 1, &SeekToGps::fixCb, this));
-	if (use_imu_) {
-		assert(imu_sub_ = nh_.subscribe(imu_topic_name_, 1, &SeekToGps::imuCb, this));
-	}
+	assert(imu_sub_ = nh_.subscribe(imu_topic_name_, 1, &SeekToGps::imuCb, this));
 
 	assert(odometry_sub_ = nh_.subscribe(odometry_topic_name_, 1, &SeekToGps::odometryCb, this));
 
@@ -66,6 +65,7 @@ SeekToGps::SeekToGps() :
 	ROS_INFO("[SeekToGps] PARAM imu_topic_name_: %s", imu_topic_name_.c_str());
 	ROS_INFO("[SeekToGps] PARAM magnetic_declination_: %7.4f", magnetic_declination_);
 	ROS_INFO("[SeekToGps] PARAM odometry_topic_name: %s", odometry_topic_name_.c_str());
+	ROS_INFO("[DiscoverCone] PARAM solve_using_odom: %s", solve_using_odom_ ? "TRUE" : "FALSE");
 	ROS_INFO("[SeekToGps] PARAM use_imu: %s", use_imu_ ? "TRUE" : "FALSE");
 }
 
@@ -106,6 +106,14 @@ void SeekToGps::resetGoal() {
 	state_ = kSEEKING_POINT;
 }
 
+double SeekToGps::odomBearing(double x1, double y1, double x2, double y2) {
+    if ((x1 == x2) && (y1 == y2)) return 0;
+    double theta = atan2(x2 - x1, y1 - y2);
+    if (theta < 0.0)
+        theta += 2 * M_PI;
+    return radians(theta);
+}
+
 StrategyFn::RESULT_T SeekToGps::tick() {
 	geometry_msgs::Twist		cmd_vel;		// For sending movement commands to the robot.
 	RESULT_T 					result = FATAL;	// Assume fatality in the algorithm.
@@ -113,27 +121,27 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 
 	if (StrategyFn::currentGoalName() != goalName()) {
 		// This is not a problem the behavior can solve.
-		return setGoalResult(INACTIVE);
+		return INACTIVE;
 	}
 
 	if (count_ObjectDetector_msgs_received_ <= 0) {
 		// Wait until ConeDetector messages are received.
-		return setGoalResult(RUNNING);
+		return RUNNING;
 	}
 
 	if (count_Odometry_msgs_received_ <= 0) {
 		// Wait until Odometry messages are received.
-		return setGoalResult(RUNNING);
+		return RUNNING;
 	}
 
 	if (count_Fix_msgs_received_ <= 0) {
 		// Wait until Fix messages are received.
-		return setGoalResult(RUNNING);
+		return RUNNING;
 	}
 
-	if (use_imu_ && (count_Imu_msgs_received_ <= 0)) {
+	if (count_Imu_msgs_received_ <= 0) {
 		// Wait until Imu messages are received.
-		return setGoalResult(RUNNING);
+		return RUNNING;
 	}
 
 	const GPS_POINT& gps_point = currentGpsPoint();	// Get the goal waypoint.
@@ -162,8 +170,21 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 	point_as_fix.longitude = gps_point.longitude;
 
 	// Compute the heading and distance from the current position to the goal waypoint.
-	double point_bearing_gps_degrees = bearing(last_Fix_msg_, point_as_fix);
-	double point_distance = distance(last_Fix_msg_, point_as_fix);
+	double point_bearing_gps_degrees;
+	if (solve_using_odom_) {
+		point_bearing_gps_degrees = odomBearing(last_Odometry_msg_.pose.pose.position.x, last_Odometry_msg_.pose.pose.position.y,
+												gps_point.x, gps_point.y);
+	} else {
+		point_bearing_gps_degrees = bearing(last_Fix_msg_, point_as_fix);
+	}
+
+	double point_distance;
+	if (solve_using_odom_) {
+		point_distance = sqrt(((last_Odometry_msg_.pose.pose.position.x - gps_point.x) * (last_Odometry_msg_.pose.pose.position.x - gps_point.x)) +
+							  ((last_Odometry_msg_.pose.pose.position.y - gps_point.y) * (last_Odometry_msg_.pose.pose.position.y - gps_point.y)));
+	} else {
+		point_distance = distance(last_Fix_msg_, point_as_fix);
+	}
 
 	// Begin forming an informational message.
 	ss << std::ios::fixed
@@ -209,15 +230,14 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 		tf::quaternionMsgToTF(last_Imu_msg_.orientation, imu_orientation);
 		double imu_yaw_degrees = normalizeEuler(tf::getYaw(imu_orientation) * 360.0 / (2 * M_PI));
 		corrected_degrees = imu_yaw_degrees + magnetic_declination_;
-		ss << ", imu_deg: " << std::setprecision(4) << imu_yaw_degrees;
-		ss << ", corrected_deg: " << std::setprecision(4) << corrected_degrees;
+		ss << ", corrected_yaw_deg: " << std::setprecision(4) << corrected_degrees;
 	} else {
 		// Use the Odometry as truth for the current robot heading.
 		tf::Quaternion odom_orientation;
 		tf::quaternionMsgToTF(last_Odometry_msg_.pose.pose.orientation, odom_orientation);
 		double odometry_yaw_degrees = normalizeEuler(tf::getYaw(odom_orientation) * 360.0 / (2 * M_PI));
 		corrected_degrees = odometry_yaw_degrees;
-		ss << ", odometry_yaw_degrees: " << std::setprecision(4) << odometry_yaw_degrees;
+		ss << ", odometry_yaw_deg: " << std::setprecision(4) << odometry_yaw_degrees;
 	}
 
 	goal_yaw_degrees_delta = goal_yaw_degrees_ - corrected_degrees;  // How far off is the current heading?
@@ -269,7 +289,7 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 
 
 	publishStrategyProgress("SeekToGps::tick", ss.str());
-	return setGoalResult(result);
+	return result;
 }
 
 SeekToGps& SeekToGps::singleton() {

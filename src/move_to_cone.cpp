@@ -64,12 +64,12 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 
 	if (StrategyFn::currentGoalName() != goalName()) {
 		// This is not a problem the behavior can solve.
-		return setGoalResult(INACTIVE);
+		return INACTIVE;
 	}
 
 	if (count_ObjectDetector_msgs_received_ <= 0) {
 		// Wait until ConeDetector messages are received.
-		return setGoalResult(RUNNING);
+		return RUNNING;
 	}
 
 	if (!last_object_detected_.object_detected) {
@@ -133,7 +133,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 	}
 
 	publishStrategyProgress("MoveToCone::tick", ss.str());
-	return setGoalResult(result);
+	return result;
 }
 
 MoveToCone& MoveToCone::singleton() {

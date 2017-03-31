@@ -105,6 +105,7 @@ private:
 	string imu_topic_name_;				// Topic name containing IMU message. Used only if use_imu_ => true.
 	double magnetic_declination_;		// Magnetic declination adjustment to be applied to IMU.
 	string odometry_topic_name_;		// Topic name containing Odometry message.
+	bool solve_using_odom_;				// Solve using Odomentry only, no GPS or IMU.
 	bool use_imu_;						// True => use IMU instead of Odometry as true robot heading.
 
 	// Publishers.
@@ -167,7 +168,8 @@ private:
 	 
 	    return degrees(atan2(y, x)); 
 	}
-	 
+ 	
+ 	double odomBearing(double x1, double y1, double x2, double y2);
 	 
  	// Calculate distance between two GPS points--accurate for distances for RoboMagellan.
 	double distance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {

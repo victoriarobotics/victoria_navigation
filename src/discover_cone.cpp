@@ -82,17 +82,17 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 
 	if (StrategyFn::currentGoalName() != goalName()) {
 		// This is not a problem the behavior can solve.
-		return setGoalResult(INACTIVE);
+		return INACTIVE;
 	}
 
 	if (count_ObjectDetector_msgs_received_ <= 0) {
 		// Wait until ConeDetector messages are received.
-		return setGoalResult(RUNNING);
+		return RUNNING;
 	}
 
 	if (count_Odometry_msgs_received_ <= 0) {
 		// Wait until Odometry messages are received.
-		return setGoalResult(RUNNING);
+		return RUNNING;
 	}
 
 	if (last_ObjectDetector_msg_.object_detected) {
@@ -153,7 +153,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 
 		if (total_rotated_yaw_ > (2 * M_PI)) {
 			ss << ", FAILED no cone found after one rotation";
-			result = FAILED;
+			result = setGoalResult(FAILED);
 			popGoal();
 			resetGoal();
 		} else {
@@ -164,7 +164,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	}
 
 	publishStrategyProgress("DiscoverCone::tick", ss.str());
-	return setGoalResult(result);
+	return result;
 }
 
 DiscoverCone& DiscoverCone::singleton() {
