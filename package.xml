@@ -27,6 +27,7 @@
   <depend>roslaunch</depend>
   <depend>rospy</depend>
   <depend>std_msgs</depend>
+  <depend>depthimage_to_laserscan</depend>
   <depend>victoria_perception</depend>
   <export>
   </export>
