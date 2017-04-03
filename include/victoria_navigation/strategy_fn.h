@@ -98,15 +98,20 @@ public:
 		else return g_goal_stack_.back().goal_param;
 	}
 
+	// Are all goals complete?
 	static bool goalStackEmpty() { return g_goal_stack_.empty(); }
 
+	// Last reported result for the current goal.
 	static RESULT_T lastGoalResult() { return g_last_goal_result_; }
 
+	// Complete the current goal and return to the previous goal.
 	static void popGoal() {
 		g_goal_stack_.pop_back();
 	}
 
+	// Replace the current goal with a new one.
 	static void pushGoal(string name, string param = "") {
+		g_last_goal_result_ = INACTIVE;	// If a new goal starts, ignore the previous goal result.
 		g_goal_stack_.push_back(GOAL_T(name, param));
 	}
 

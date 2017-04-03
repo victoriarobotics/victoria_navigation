@@ -70,7 +70,10 @@ void doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPu
                 goalStatus.goal_id.stamp = ros::Time::now();
                 goalStatus.goal_id.id = "robo_magellan_node";
                 goalStatus.status = actionlib_msgs::GoalStatus::ACTIVE;
-                goalStatus.text = "[strategy_node] executed: " + ((*it)->name()) + ", result: " + StrategyFn::resultToString(result);
+                goalStatus.text = "[strategy_node] executed: " 
+                                  + ((*it)->name()) 
+                                  + ", result: " + StrategyFn::resultToString(result)
+                                  + ", currentGoalName: " + StrategyFn::currentGoalName().c_str();
                 strategyStatusPublisher.publish(goalStatus);
 
                 if (result == StrategyFn::INACTIVE) {

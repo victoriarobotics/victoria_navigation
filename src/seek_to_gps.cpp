@@ -126,21 +126,25 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 
 	if (count_ObjectDetector_msgs_received_ <= 0) {
 		// Wait until ConeDetector messages are received.
+		ROS_INFO("[SeekToGps::tick] waiting ObjectDetector messages");
 		return RUNNING;
 	}
 
 	if (count_Odometry_msgs_received_ <= 0) {
 		// Wait until Odometry messages are received.
+		ROS_INFO("[SeekToGps::tick] waiting Odometry messages");
 		return RUNNING;
 	}
 
 	if (count_Fix_msgs_received_ <= 0) {
 		// Wait until Fix messages are received.
+		ROS_INFO("[SeekToGps::tick] waiting Fix messages");
 		return RUNNING;
 	}
 
 	if (count_Imu_msgs_received_ <= 0) {
 		// Wait until Imu messages are received.
+		ROS_INFO("[SeekToGps::tick] waiting Imu messages");
 		return RUNNING;
 	}
 
@@ -188,12 +192,12 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 
 	// Begin forming an informational message.
 	ss << std::ios::fixed
-	   << "AT lat: " << std::setprecision(9) << last_Fix_msg_.latitude
-	   << ", lon: " << std::setprecision(9) << last_Fix_msg_.longitude
+	   << "AT lat: " << std::setprecision(10) << last_Fix_msg_.latitude
+	   << ", lon: " << std::setprecision(10) << last_Fix_msg_.longitude
 	   << ", x: " << std::setprecision(3) << last_Odometry_msg_.pose.pose.position.x
 	   << ", y: " << std::setprecision(3) << last_Odometry_msg_.pose.pose.position.y
-	   << ", TO lat: " << std::setprecision(9) << gps_point.latitude
-	   << ", lon: " << std::setprecision(9) << gps_point.longitude
+	   << ", TO lat: " << std::setprecision(10) << gps_point.latitude
+	   << ", lon: " << std::setprecision(10) << gps_point.longitude
 	   << ", head: " << std::setprecision(4) << gps_point.bearing
 	   << ", x: " << std::setprecision(3) << gps_point.x
 	   << ", y: " << std::setprecision(3) << gps_point.y
