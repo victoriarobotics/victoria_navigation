@@ -33,6 +33,7 @@
 
 #include "victoria_navigation/solve_robomagellan.h"
 #include "victoria_navigation/strategy_fn.h"
+#include "victoria_perception/AnnotateDetectorImage.h"
 
 // A behavior that solves the overall RoboMagellan contest.
 //
@@ -74,11 +75,16 @@ private:
 	ros::Subscriber fix_sub_;
 
 	// Algorithm variables.
+	ros::ServiceClient coneDetectorAnnotatorService_;	// For annotating the cone detector image.
 	vector<GPS_POINT> gps_points_;				// Ordered list of waypoints to traverse.
 	long int index_next_point_to_seek_;			// Index into list of GPS points to seek to next.
+	victoria_perception::AnnotateDetectorImage annotator_request_;	// The annotation request.
 	STATE state_;								// State of state machine.
 	YAML::Node waypoints_;						// Waypoints in yaml format.
 	
+	// ROS node handle.
+	ros::NodeHandle nh_;
+
 	// Process one Fix topic message.
 	long int count_Fix_msgs_received_;
 	sensor_msgs::NavSatFix last_Fix_msg_;

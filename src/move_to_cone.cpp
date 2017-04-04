@@ -67,7 +67,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 		return INACTIVE;
 	}
 
-	if (count_ObjectDetector_msgs_received_ <= 0) {
+	if (count_ObjectDetector_msgs_received_ <= 20) {
 		// Wait until ConeDetector messages are received.
 		return RUNNING;
 	}

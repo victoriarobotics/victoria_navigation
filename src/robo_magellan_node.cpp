@@ -33,6 +33,7 @@
 #include "victoria_navigation/solve_robomagellan.h"
 #include "victoria_navigation/strategy_exception.h"
 #include "victoria_navigation/strategy_fn.h"
+#include "victoria_perception/AnnotateDetectorImage.h"
 #include <stdint.h>
 
 // Perform problem solving by iterating over each of the possible problem solvers, a.k.a.
@@ -52,7 +53,7 @@
 //      behaviors                   A list of possible behaviors.
 //      strategyStatusPublisher     A ROS publisher that reports internal strategy progress or information.
 //
-void doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPublisher) {
+void doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPublisher, ros::ServiceClient annotatorService) {
     actionlib_msgs::GoalStatus goalStatus;
     StrategyFn::RESULT_T result = StrategyFn::FATAL;
     ros::Rate rate(10); // Loop rate
@@ -62,6 +63,10 @@ void doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPu
             rate.sleep();
             ros::spinOnce();
 
+            victoria_perception::AnnotateDetectorImage srv;
+            srv.request.annotation = "UL;FFFFFF;" + StrategyFn::currentGoalName() + " - " + StrategyFn::resultToString(StrategyFn::lastGoalResult());
+            bool srv_result = annotatorService.call(srv);
+            
             for (vector<StrategyFn*>::iterator it = behaviors.begin(); it != behaviors.end(); ++it) {
                 // Ask one of the behaviors to try to solve the current problem.
                 StrategyFn::RESULT_T result = ((*it)->tick)();
@@ -145,6 +150,7 @@ int main(int argc, char** argv) {
 
     // Set the initial problem to be solved.
     StrategyFn::pushGoal(SolveRoboMagellan::singleton().goalName(), "0");
+
     //StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
    
     // Attempt to solve the problem.
