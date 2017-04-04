@@ -14,7 +14,6 @@
 	<include file="$(find victoria_perception)/launch/cone_detector.launch">
 		<arg name="image_transport" value="compressed" />
 		<arg name="image_topic_name" value="$(arg image_topic_name)" />
-		<arg name="show_debug_windows" value="$(arg show_debug_windows)" />
     	</include>
 
   <node pkg="victoria_navigation" name="robo_magellan_node" type="robo_magellan_node" respawn="false" output="screen" launch-prefix="$(arg launchPrefix)" >
