@@ -53,7 +53,7 @@
 //      behaviors                   A list of possible behaviors.
 //      strategyStatusPublisher     A ROS publisher that reports internal strategy progress or information.
 //
-void doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPublisher, ros::ServiceClient annotatorService) {
+void doStrategy(std::vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPublisher, ros::ServiceClient annotatorService) {
     actionlib_msgs::GoalStatus goalStatus;
     StrategyFn::RESULT_T result = StrategyFn::FATAL;
     ros::Rate rate(10); // Loop rate
@@ -67,7 +67,7 @@ void doStrategy(vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPu
             srv.request.annotation = "UL;FFFFFF;" + StrategyFn::currentGoalName() + " - " + StrategyFn::resultToString(StrategyFn::lastGoalResult());
             bool srv_result = annotatorService.call(srv);
             
-            for (vector<StrategyFn*>::iterator it = behaviors.begin(); it != behaviors.end(); ++it) {
+            for (std::vector<StrategyFn*>::iterator it = behaviors.begin(); it != behaviors.end(); ++it) {
                 // Ask one of the behaviors to try to solve the current problem.
                 StrategyFn::RESULT_T result = ((*it)->tick)();
 
@@ -136,7 +136,7 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh("~");
 
     // A list of all possible problem solvers/subgoals/behaviors.
-    vector<StrategyFn*> behaviors;
+    std::vector<StrategyFn*> behaviors;
 
     ros::Publisher strategyStatusPublisher = nh.advertise<actionlib_msgs::GoalStatus>("/strategy", 1);
 

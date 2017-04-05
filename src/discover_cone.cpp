@@ -78,7 +78,7 @@ void DiscoverCone::resetGoal() {
 StrategyFn::RESULT_T DiscoverCone::tick() {
 	geometry_msgs::Twist		cmd_vel;		// For sending movement commands to the robot.
 	RESULT_T 					result = FATAL;	// Assume fatality in the algorithm.
-	ostringstream 				ss;				// For sending informations messages.
+	std::ostringstream 				ss;				// For sending informations messages.
 
 	if (StrategyFn::currentGoalName() != goalName()) {
 		// This is not a problem the behavior can solve.

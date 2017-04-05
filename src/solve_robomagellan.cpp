@@ -103,7 +103,7 @@ void SolveRobomMagellan::resetGoal() {
 
 StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 	RESULT_T 					result = FATAL;
-	ostringstream 				ss;
+	std::ostringstream 				ss;
 
  	if (StrategyFn::currentGoalName() != goalName()) {
 		// This is not a problem the behavior can solve.

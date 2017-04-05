@@ -68,15 +68,15 @@ private:
 	} STATE;
 
 	// Parameters.
-	string fix_topic_name_;				// Topic name containing fix message.
-	string waypoint_yaml_path_;			// Path to yaml file containing waypoints.
+	std::string fix_topic_name_;				// Topic name containing fix message.
+	std::string waypoint_yaml_path_;			// Path to yaml file containing waypoints.
 
 	// Subscribers.
 	ros::Subscriber fix_sub_;
 
 	// Algorithm variables.
 	ros::ServiceClient coneDetectorAnnotatorService_;	// For annotating the cone detector image.
-	vector<GPS_POINT> gps_points_;				// Ordered list of waypoints to traverse.
+	std::vector<GPS_POINT> gps_points_;				// Ordered list of waypoints to traverse.
 	long int index_next_point_to_seek_;			// Index into list of GPS points to seek to next.
 	victoria_perception::AnnotateDetectorImage annotator_request_;	// The annotation request.
 	STATE state_;								// State of state machine.
@@ -139,13 +139,13 @@ private:
 public:
 	RESULT_T tick();
 
-	string goalName() { return "/strategy/solve_robomagellan"; }
+	std::string goalName() { return "/strategy/solve_robomagellan"; }
 
-	string name() { return string("SolveRobomMagellan"); };
+	std::string name() { return std::string("SolveRobomMagellan"); };
 
 	static SolveRobomMagellan& singleton();
 
-	string stateName(STATE state) {
+	std::string stateName(STATE state) {
 		switch (state) {
 			case SETUP:					return "SETUP";
 			case MOVE_TO_GPS_POINT:		return "MOVE_TO_GPS_POINT";

@@ -62,9 +62,9 @@ private:
 	} STATE;
 
 	// Parameters.
-	string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
-	string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
-	string odometry_topic_name_;		// Topic name containing Odometry message.
+	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
+	std::string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
+	std::string odometry_topic_name_;		// Topic name containing Odometry message.
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
@@ -104,13 +104,13 @@ private:
 public:
 	RESULT_T tick();
 
-	string goalName() { return "/strategy/need_to_discover_cone"; }
+	std::string goalName() { return "/strategy/need_to_discover_cone"; }
 
-	string name() { return string("DiscoverCone"); };
+	std::string name() { return std::string("DiscoverCone"); };
 
 	static DiscoverCone& singleton();
 
-	string stateName(STATE state) {
+	std::string stateName(STATE state) {
 		switch (state) {
 			case kCAPTURE_ODOMETRY:					return "kCAPTURE_ODOMETRY";
 			case kROTATING_TO_DISCOVER:				return "kROTATING_TO_DISCOVER";

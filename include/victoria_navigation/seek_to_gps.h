@@ -98,13 +98,13 @@ private:
 	} STATE;
 
 	// Parameters.
-	string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
-	string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
-	string fix_topic_name_;				// Topic name containing fix message.
+	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
+	std::string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
+	std::string fix_topic_name_;				// Topic name containing fix message.
 	double gps_close_distance_meters_;	// How close to seek the point using GPS before assuming it's "close enough".
-	string imu_topic_name_;				// Topic name containing IMU message. Used only if use_imu_ => true.
+	std::string imu_topic_name_;				// Topic name containing IMU message. Used only if use_imu_ => true.
 	double magnetic_declination_;		// Magnetic declination adjustment to be applied to IMU.
-	string odometry_topic_name_;		// Topic name containing Odometry message.
+	std::string odometry_topic_name_;		// Topic name containing Odometry message.
 	bool solve_using_odom_;				// Solve using Odomentry only, no GPS or IMU.
 	bool use_imu_;						// True => use IMU instead of Odometry as true robot heading.
 
@@ -196,13 +196,13 @@ private:
 public:
 	RESULT_T tick();
 
-	string goalName() { return "/strategy/seek_to_gps_point"; }
+	std::string goalName() { return "/strategy/seek_to_gps_point"; }
 
-	string name() { return string("SeekToGps"); };
+	std::string name() { return std::string("SeekToGps"); };
 
 	static SeekToGps& singleton();
 
-	string stateName(STATE state) {
+	std::string stateName(STATE state) {
 		switch (state) {
 			case kSEEKING_POINT:					return "kSEEKING_POINT";
 			case kSETUP:							return "kSETUP";

@@ -54,8 +54,8 @@ private:
 	} STATE;
 
 	// Parameters.
-	string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
-	string cone_detector_topic_name_;	// Topic name containing cone_detector message
+	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
+	std::string cone_detector_topic_name_;	// Topic name containing cone_detector message
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
@@ -82,13 +82,13 @@ private:
 public:
 	RESULT_T tick();
 
-	string goalName() { return "/strategy/need_to_move_cone"; }
+	std::string goalName() { return "/strategy/need_to_move_cone"; }
 
-	string name() { return string("MoveToCone"); };
+	std::string name() { return std::string("MoveToCone"); };
 
 	static MoveToCone& singleton();
 
-	string stateName(STATE state) {
+	std::string stateName(STATE state) {
 		switch (state) {
 			case kMOVING_TO_CENTERING_POSITION:		return "kMOVING_TO_CENTERING_POSITION";
 			case kMOVING_TO_TOUCH:					return "kMOVING_TO_TOUCH";

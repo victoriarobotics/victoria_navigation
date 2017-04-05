@@ -8,14 +8,12 @@
 #include <string>
 #include <vector>
 
-using namespace std;
-
 class StrategyFn {
 public:
 	typedef struct GOAL_T {
-		string 	goal_name;	// Name of goal.
-		string 	goal_param;	// Optional parameter for goal.
-		GOAL_T(string name, string param) : goal_name(name), goal_param(param) {}
+		std::string 	goal_name;	// Name of goal.
+		std::string 	goal_param;	// Optional parameter for goal.
+		GOAL_T(std::string name, std::string param) : goal_name(name), goal_param(param) {}
 	} GOAL_T;
 
 	typedef struct GPS_POINT {
@@ -40,9 +38,9 @@ public:
 
 protected:
 	static const char* RESULT_STR[];		// Map RESULT_T enum to string.
-	static vector<GOAL_T> g_goal_stack_;	// Stack of goals to be solved.
-	static vector<GPS_POINT> g_point_stack_;// Stack of goal GPS points, related to g_goal_stack.
-	static const string g_empty_string;		// Singleton empty string.
+	static std::vector<GOAL_T> g_goal_stack_;	// Stack of goals to be solved.
+	static std::vector<GPS_POINT> g_point_stack_;// Stack of goal GPS points, related to g_goal_stack.
+	static const std::string g_empty_string;		// Singleton empty string.
 	static RESULT_T g_last_goal_result_;	// Last result of current goal tick().
 
 	// ROS node handle.
@@ -55,9 +53,9 @@ protected:
 	ros::Publisher current_strategy_pub_;
 	ros::Publisher strategy_status_publisher_;
 
-	string last_reported_strategy_;				// To prevent useless publication of same information.
+	std::string last_reported_strategy_;				// To prevent useless publication of same information.
 
-	void publishCurrentStragety(string strategy) {
+	void publishCurrentStragety(std::string strategy) {
 		std_msgs::String msg;
 		msg.data = strategy;
 		if (strategy != last_reported_strategy_) {
@@ -67,10 +65,10 @@ protected:
 		}
 	}
 
-	void publishStrategyProgress(string strategy_name, string progress) {
-		static map<string, string> last_progress_message;
+	void publishStrategyProgress(std::string strategy_name, std::string progress) {
+		static std::map<std::string, std::string> last_progress_message;
 		actionlib_msgs::GoalStatus 	goal_status;
-		ostringstream ss;
+		std::ostringstream ss;
 
 		ss << "[" << strategy_name << "] " << progress;
 		goal_status.goal_id.stamp = ros::Time::now();
@@ -88,12 +86,12 @@ protected:
 	}
 
 public:
-	static const string& currentGoalName() {
+	static const std::string& currentGoalName() {
 		if (g_goal_stack_.empty()) return g_empty_string;
 		else return g_goal_stack_.back().goal_name;
 	}
 
-	static const string& currentGoalParam() {
+	static const std::string& currentGoalParam() {
 		if (g_goal_stack_.empty()) return g_empty_string;
 		else return g_goal_stack_.back().goal_param;
 	}
@@ -110,7 +108,7 @@ public:
 	}
 
 	// Replace the current goal with a new one.
-	static void pushGoal(string name, string param = "") {
+	static void pushGoal(std::string name, std::string param = "") {
 		g_last_goal_result_ = INACTIVE;	// If a new goal starts, ignore the previous goal result.
 		g_goal_stack_.push_back(GOAL_T(name, param));
 	}
@@ -120,13 +118,13 @@ public:
 	static void pushGpsPoint(GPS_POINT gps_point) { g_point_stack_.push_back(gps_point); }
 
 	// Name of strategy.
-	virtual string name() = 0;
+	virtual std::string name() = 0;
 
-	static string resultToString(RESULT_T result) {
+	static std::string resultToString(RESULT_T result) {
 		if ((result <= UNUSED_START) || (result >= UNUSED_END)) {
 			return "BAD result code";
 		} else {
-			return string(RESULT_STR[result]);
+			return std::string(RESULT_STR[result]);
 		}
 	}
 
@@ -139,7 +137,7 @@ public:
 	virtual RESULT_T tick() = 0;
 
 	// Get string needed to initiate the goal.
-	virtual string goalName() = 0;
+	virtual std::string goalName() = 0;
 };
 
 #endif
