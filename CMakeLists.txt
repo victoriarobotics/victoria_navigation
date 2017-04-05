@@ -35,6 +35,7 @@ link_directories(${YAML_CPP_LIBRARY_DIRS})
 catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS
+  angles
   geometry_msgs
   gps_common
   roscpp

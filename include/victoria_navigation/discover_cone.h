@@ -88,9 +88,6 @@ private:
 	// Reset goal. After this, someone must request the goal again and it will start over.
 	void resetGoal();
 
-	// Normalize an Euler angle into [0..360].
-	double normalizeEuler(double yaw);
-
 	// Process one Odometry topic message;
 	long int count_Odometry_msgs_received_;
 	nav_msgs::Odometry last_Odometry_msg_;

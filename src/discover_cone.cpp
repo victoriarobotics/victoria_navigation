@@ -22,6 +22,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <angles/angles.h>
 #include <cassert>
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
@@ -48,14 +49,6 @@ DiscoverCone::DiscoverCone() :
 	ROS_INFO("[DiscoverCone] PARAM cmd_vel_topic_name: %s", cmd_vel_topic_name_.c_str());
 	ROS_INFO("[DiscoverCone] PARAM cone_detector_topic_name: %s", cone_detector_topic_name_.c_str());
 	ROS_INFO("[DiscoverCone] PARAM odometry_topic_name: %s", odometry_topic_name_.c_str());
-}
-
-// Convert an Euler angle into a range of [0 .. 360).
-double DiscoverCone::normalizeEuler(double yaw) {
-	double result = yaw;
-	while (result > 360) result -= 360;
-	while (result < 0) result += 360;
-	return result;
 }
 
 // Capture the lates ConeDetector information
@@ -131,7 +124,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	case kCAPTURE_ODOMETRY:
 		starting_Odometry_msg_ = last_Odometry_msg_;
 		previous_pose_ = last_Odometry_msg_.pose.pose.orientation;
-		starting_yaw_ = normalizeEuler(tf::getYaw(starting_Odometry_msg_.pose.pose.orientation));
+		starting_yaw_ = tf::getYaw(starting_Odometry_msg_.pose.pose.orientation);
 		total_rotated_yaw_ = 0;
 		state_ = kROTATING_TO_DISCOVER;	// We have a starting orientation, go to the begin-rotation strategy.
 		ss << "Got Odometry, begin rotation";
@@ -143,8 +136,8 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		// completed a full circle.
 		tf::quaternionMsgToTF(previous_pose_, previous_tf_quat);
 		tf::quaternionMsgToTF(last_Odometry_msg_.pose.pose.orientation, current_tf_quat);
-		originalYaw = normalizeEuler(tf::getYaw(starting_Odometry_msg_.pose.pose.orientation) * 360.0 / (2 * M_PI));
-		currentYaw = normalizeEuler(tf::getYaw(last_Odometry_msg_.pose.pose.orientation) * 360.0 / (2 * M_PI));
+		originalYaw = tf::getYaw(starting_Odometry_msg_.pose.pose.orientation);
+		currentYaw = tf::getYaw(last_Odometry_msg_.pose.pose.orientation);
 		total_rotated_yaw_ += abs(previous_tf_quat.angleShortestPath(current_tf_quat));
 		previous_pose_ = last_Odometry_msg_.pose.pose.orientation;
 
@@ -152,9 +145,9 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		cmd_vel.angular.z = 0.4; //TODO ### Make configurable.
 
 		ss << "Rotating";
-		ss << ", originalYaw: " << std::setprecision(5) << originalYaw;
-		ss << ", currentYaw: " << std::setprecision(5) << currentYaw;
-		ss << ", total_rotated_yaw_: " << total_rotated_yaw_;
+		ss << ", originalYaw (deg): " << std::setprecision(5) << angles::to_degrees(originalYaw);
+		ss << ", currentYaw (deg): " << std::setprecision(5) << angles::to_degrees(currentYaw);
+		ss << ", total_rotated_yaw_ (deg): " << angles::to_degrees(total_rotated_yaw_);
 
 		if (total_rotated_yaw_ > (2 * M_PI)) {
 			ss << ", FAILED no cone found after one rotation";

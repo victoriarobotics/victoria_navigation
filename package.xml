@@ -15,6 +15,7 @@
 
   <buildtool_depend>catkin</buildtool_depend>
   <depend>amcl</depend>
+  <depend>angles</depend>
   <depend>base_local_planner</depend>
   <depend>dwa_local_planner</depend>
   <depend>frontier_exploration</depend>
