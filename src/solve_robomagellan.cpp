@@ -59,36 +59,36 @@
 #include "victoria_navigation/seek_to_gps.h"
 #include "victoria_navigation/solve_robomagellan.h"
 
-SolveRobomMagellan::SolveRobomMagellan() :
+SolveRoboMagellan::SolveRoboMagellan() :
 	index_next_point_to_seek_(0),
 	state_(SETUP)
 {
 	assert(ros::param::get("~fix_topic_name", fix_topic_name_));
 	assert(ros::param::get("~waypoint_yaml_path", waypoint_yaml_path_));
 	
-	assert(fix_sub_ = nh_.subscribe(fix_topic_name_, 1, &SolveRobomMagellan::fixCb, this));
+	assert(fix_sub_ = nh_.subscribe(fix_topic_name_, 1, &SolveRoboMagellan::fixCb, this));
 
-	ROS_INFO("[SolveRobomMagellan] PARAM fix_topic_name: %s", fix_topic_name_.c_str());
-	ROS_INFO("[SolveRobomMagellan] PARAM waypoint_yaml_path: %s", waypoint_yaml_path_.c_str());
+	ROS_INFO("[SolveRoboMagellan] PARAM fix_topic_name: %s", fix_topic_name_.c_str());
+	ROS_INFO("[SolveRoboMagellan] PARAM waypoint_yaml_path: %s", waypoint_yaml_path_.c_str());
 
 	waypoints_ = YAML::LoadFile(waypoint_yaml_path_);
 	if (waypoints_["gps_points"].Type() != YAML::NodeType::Sequence) {
-		ROS_ERROR("[SolveRobomMagellan] Unable to load yaml file: %s", waypoint_yaml_path_.c_str());
+		ROS_ERROR("[SolveRoboMagellan] Unable to load yaml file: %s", waypoint_yaml_path_.c_str());
 	} else {
-		ROS_INFO("[SolveRobomMagellan] Number of GPS points in the set: %ld", waypoints_["gps_points"].size());
+		ROS_INFO("[SolveRoboMagellan] Number of GPS points in the set: %ld", waypoints_["gps_points"].size());
 	}
 
     coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
 }
 
 // Capture the lates Fix information.
-void SolveRobomMagellan::fixCb(const sensor_msgs::NavSatFixConstPtr& msg) {
+void SolveRoboMagellan::fixCb(const sensor_msgs::NavSatFixConstPtr& msg) {
 	last_Fix_msg_ = *msg;
 	count_Fix_msgs_received_++;
 }
 
 // Convert an Euler angle into a range of [0 .. 360).
-double SolveRobomMagellan::normalizeEuler(double yaw_degrees) {
+double SolveRoboMagellan::normalizeEuler(double yaw_degrees) {
 	double result = yaw_degrees;
 	while (result > 360) result -= 360;
 	while (result < 0) result += 360;
@@ -96,12 +96,12 @@ double SolveRobomMagellan::normalizeEuler(double yaw_degrees) {
 }
 
 // Reset global state so this behavior can be used to solve the next problem.
-void SolveRobomMagellan::resetGoal() {
+void SolveRoboMagellan::resetGoal() {
 	index_next_point_to_seek_ = 0;
 	state_ = SETUP;
 }
 
-StrategyFn::RESULT_T SolveRobomMagellan::tick() {
+StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 	RESULT_T 					result = FATAL;
 	std::ostringstream 				ss;
 
@@ -143,7 +143,7 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 			gps_point.distance = point_distance;
 			gps_points_.push_back(gps_point);
 			ROS_INFO_COND(do_debug_strategy_,
-						  "[SolveRobomMagellan::tick] point: %d"
+						  "[SolveRoboMagellan::tick] point: %d"
 						  ", FROM lat: %11.7f"
 						  ", lon: %11.7f"
 						  ", TO lat: %11.7f"
@@ -185,7 +185,7 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 
 	case MOVE_TO_GPS_POINT:
 		if (lastGoalResult() == SUCCESS) {
-			ROS_INFO("[SolveRobomMagellan::tick] succeeded in SeekToGps for point: %ld", index_next_point_to_seek_);
+			ROS_INFO("[SolveRoboMagellan::tick] succeeded in SeekToGps for point: %ld", index_next_point_to_seek_);
 			ss << "SeekToGps successful to point: ";
 			ss << index_next_point_to_seek_;
 			if (!gps_points_[index_next_point_to_seek_].has_cone) {
@@ -216,7 +216,7 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 
 	case FIND_CONE_IN_CAMERA:
 		if (lastGoalResult() == SUCCESS) {
-			ROS_INFO("[SolveRobomMagellan::tick] succeeded in DiscoverCone for point: %ld", index_next_point_to_seek_);
+			ROS_INFO("[SolveRoboMagellan::tick] succeeded in DiscoverCone for point: %ld", index_next_point_to_seek_);
 			StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
 			state_ = MOVE_TO_CONE;
 			ss << "DiscoverCone successful for point: ";
@@ -238,7 +238,7 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 
 	case MOVE_TO_CONE:
 		if (lastGoalResult() == SUCCESS) {
-			ROS_INFO("[SolveRobomMagellan::tick] succeeded in MoveToCone for point: %ld", index_next_point_to_seek_);
+			ROS_INFO("[SolveRoboMagellan::tick] succeeded in MoveToCone for point: %ld", index_next_point_to_seek_);
 			//##### StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
 			state_ = MOVE_FROM_CONE;
 			ss << "MoveToCone successful for point: ";
@@ -260,7 +260,7 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 
 	case MOVE_FROM_CONE:
 		if (lastGoalResult() == SUCCESS) {
-			ROS_INFO("[SolveRobomMagellan::tick] succeeded in MoveFromCone for point: %ld", index_next_point_to_seek_);
+			ROS_INFO("[SolveRoboMagellan::tick] succeeded in MoveFromCone for point: %ld", index_next_point_to_seek_);
 			state_ = ADVANCE_TO_NEXT_POINT;
 			ss << "MoveFromCone successful for point: ";
 			ss << index_next_point_to_seek_;
@@ -313,11 +313,11 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 		break;
 	}
 
-	publishStrategyProgress("SolveRobomMagellan::tick", ss.str());
+	publishStrategyProgress("SolveRoboMagellan::tick", ss.str());
 	return result;
 }
 
-SolveRobomMagellan& SolveRobomMagellan::singleton() {
-    static SolveRobomMagellan singleton_;
+SolveRoboMagellan& SolveRoboMagellan::singleton() {
+    static SolveRoboMagellan singleton_;
     return singleton_;
 }

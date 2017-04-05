@@ -190,8 +190,8 @@ private:
 
 	// Singleton pattern.
 	SeekToGps();
-	SeekToGps(SeekToGps const&) {};
-	SeekToGps& operator=(SeekToGps const&) {};
+	SeekToGps(SeekToGps const&) {}
+	SeekToGps& operator=(SeekToGps const&) {}
 
 public:
 	RESULT_T tick();

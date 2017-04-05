@@ -95,8 +95,8 @@ private:
 
 	// Singleton pattern.
 	DiscoverCone();
-	DiscoverCone(DiscoverCone const&) {};
-	DiscoverCone& operator=(DiscoverCone const&) {};
+	DiscoverCone(DiscoverCone const&) {}
+	DiscoverCone& operator=(DiscoverCone const&) {}
 
 public:
 	RESULT_T tick();

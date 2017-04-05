@@ -56,7 +56,7 @@
 //		* If the state is ADVANCE_TO_NEXT_POINT, then if there are no more points indicate SUCCESS and
 //		   reset the behavior. Else advance to the next point and set the state to MOVE_TO_GPS_POINT.
 //
-class SolveRobomMagellan : public StrategyFn {
+class SolveRoboMagellan : public StrategyFn {
 private:
 	enum STATE {
 		SETUP,					// Capture initial state.
@@ -109,6 +109,7 @@ private:
 	 
 	 
  	// Calculate distance between two GPS points--accurate for distances for RoboMagellan.
+ 	// See the 'haversine' formula in http://www.movable-type.co.uk/scripts/latlong.html
 	double distance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = radians(from.latitude);
 	    double lon1 = radians(from.longitude);
@@ -132,9 +133,9 @@ private:
 	void resetGoal();
 
 	// Singleton pattern.
-	SolveRobomMagellan();
-	SolveRobomMagellan(SolveRobomMagellan const&) {};
-	SolveRobomMagellan& operator=(SolveRobomMagellan const&) {};
+	SolveRoboMagellan();
+	SolveRoboMagellan(SolveRoboMagellan const&) {}
+	SolveRoboMagellan& operator=(SolveRoboMagellan const&) {}
 
 public:
 	RESULT_T tick();
@@ -145,11 +146,11 @@ public:
 	}
 
 	const std::string& name() { 
-		static const std::string name = "SolveRobomMagellan";
+		static const std::string name = "SolveRoboMagellan";
 		return name;
 	};
 
-	static SolveRobomMagellan& singleton();
+	static SolveRoboMagellan& singleton();
 
 	const std::string& stateName(STATE state) {
 		static const std::string setup = "SETUP";

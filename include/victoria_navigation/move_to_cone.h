@@ -76,8 +76,8 @@ private:
 
 	// Singleton pattern.
 	MoveToCone();
-	MoveToCone(MoveToCone const&) {};
-	MoveToCone& operator=(MoveToCone const&) {};
+	MoveToCone(MoveToCone const&) {}
+	MoveToCone& operator=(MoveToCone const&) {}
 
 public:
 	RESULT_T tick();

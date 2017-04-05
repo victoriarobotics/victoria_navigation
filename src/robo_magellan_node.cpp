@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
     behaviors.push_back(&DiscoverCone::singleton());
     behaviors.push_back(&MoveToCone::singleton());
     behaviors.push_back(&SeekToGps::singleton());
-    behaviors.push_back(&SolveRobomMagellan::singleton());
+    behaviors.push_back(&SolveRoboMagellan::singleton());
 
     ros::ServiceClient coneDetectorAnnotatorService = nh.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
 
