@@ -1,5 +1,5 @@
-#ifndef __STRATEGY_FN
-#define __STRATEGY_FN
+#ifndef __VICTORIA_NAVIGATION_STRATEGY_FN
+#define __VICTORIA_NAVIGATION_STRATEGY_FN
 
 #include <ros/ros.h>
 #include <actionlib_msgs/GoalStatus.h>
@@ -140,4 +140,4 @@ public:
 	virtual std::string goalName() = 0;
 };
 
-#endif
+#endif  // __VICTORIA_NAVIGATION_STRATEGY_FN

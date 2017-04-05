@@ -31,7 +31,6 @@
 #include "victoria_navigation/move_to_cone.h"
 #include "victoria_navigation/seek_to_gps.h"
 #include "victoria_navigation/solve_robomagellan.h"
-#include "victoria_navigation/strategy_exception.h"
 #include "victoria_navigation/strategy_fn.h"
 #include "victoria_perception/AnnotateDetectorImage.h"
 #include <stdint.h>
@@ -59,62 +58,56 @@ void doStrategy(std::vector<StrategyFn*>& behaviors, ros::Publisher& strategySta
     ros::Rate rate(10); // Loop rate
 
     while (ros::ok()) {
-        try {
-            rate.sleep();
-            ros::spinOnce();
+        rate.sleep();
+        ros::spinOnce();
 
-            victoria_perception::AnnotateDetectorImage srv;
-            srv.request.annotation = "UL;FFFFFF;" + StrategyFn::currentGoalName() + " - " + StrategyFn::resultToString(StrategyFn::lastGoalResult());
-            bool srv_result = annotatorService.call(srv);
-            
-            for (std::vector<StrategyFn*>::iterator it = behaviors.begin(); it != behaviors.end(); ++it) {
-                // Ask one of the behaviors to try to solve the current problem.
-                StrategyFn::RESULT_T result = ((*it)->tick)();
+        victoria_perception::AnnotateDetectorImage srv;
+        srv.request.annotation = "UL;FFFFFF;" + StrategyFn::currentGoalName() + " - " + StrategyFn::resultToString(StrategyFn::lastGoalResult());
+        bool srv_result = annotatorService.call(srv);
+        
+        for (std::vector<StrategyFn*>::iterator it = behaviors.begin(); it != behaviors.end(); ++it) {
+            // Ask one of the behaviors to try to solve the current problem.
+            StrategyFn::RESULT_T result = ((*it)->tick)();
 
-                // Generate a report on what just happened, showing what behavior was invoked and its response.
-                goalStatus.goal_id.stamp = ros::Time::now();
-                goalStatus.goal_id.id = "robo_magellan_node";
-                goalStatus.status = actionlib_msgs::GoalStatus::ACTIVE;
-                goalStatus.text = "[strategy_node] executed: " 
-                                  + ((*it)->name()) 
-                                  + ", result: " + StrategyFn::resultToString(result)
-                                  + ", currentGoalName: " + StrategyFn::currentGoalName().c_str();
-                strategyStatusPublisher.publish(goalStatus);
+            // Generate a report on what just happened, showing what behavior was invoked and its response.
+            goalStatus.goal_id.stamp = ros::Time::now();
+            goalStatus.goal_id.id = "robo_magellan_node";
+            goalStatus.status = actionlib_msgs::GoalStatus::ACTIVE;
+            goalStatus.text = "[strategy_node] executed: " 
+                              + ((*it)->name()) 
+                              + ", result: " + StrategyFn::resultToString(result)
+                              + ", currentGoalName: " + StrategyFn::currentGoalName().c_str();
+            strategyStatusPublisher.publish(goalStatus);
 
-                if (result == StrategyFn::INACTIVE) {
-                    // The behavior wasn't applicable to the goal. 
-                    // Advance to the next behavior to see if it can solve the problem.
-                    continue;
-                }
-
-                if (result == StrategyFn::FATAL) {
-                    // Something bad happened -- kill the problem solver.
-                    ROS_INFO_STREAM("[_strategy_node] function: " << ((*it)->name()) << ", FATAL result, exiting");
-                    return;
-                } else if (result == StrategyFn::RUNNING) {
-                    // The behavior is working on a solution. Advance to the next behavior which
-                    // might also want a crack at solving the problem.
-                    continue;
-                } else if (result == StrategyFn::SUCCESS) {
-                    // The current problem was solved by the behavior.
-                    if (StrategyFn::goalStackEmpty()) {
-                        // There are no more problems to be solved, we're done.
-                        ROS_INFO("[robo_magellan_strategy_node] WOO HOO! SUCCESS!");
-                        return;
-                    } else {
-                        // There are still other problems to be solved. Start again.
-                        break;
-                    }
-                } else if (result == StrategyFn::FAILED) {
-                    // The current behavior tried by failed to solve the problem.
-                    // Just carry on, giving the problem to the other behaviors.
-                    continue;
-                }
+            if (result == StrategyFn::INACTIVE) {
+                // The behavior wasn't applicable to the goal. 
+                // Advance to the next behavior to see if it can solve the problem.
+                continue;
             }
-        } catch (StrategyException* e) {
-            // Nothing currently emits these, so it's a placeholder for future work.
-            // ROS_INFO_STREAM("[_strategy_node] StrategyException: " << e->what());
-            // Do nothing--swallow the exception..
+
+            if (result == StrategyFn::FATAL) {
+                // Something bad happened -- kill the problem solver.
+                ROS_INFO_STREAM("[_strategy_node] function: " << ((*it)->name()) << ", FATAL result, exiting");
+                return;
+            } else if (result == StrategyFn::RUNNING) {
+                // The behavior is working on a solution. Advance to the next behavior which
+                // might also want a crack at solving the problem.
+                continue;
+            } else if (result == StrategyFn::SUCCESS) {
+                // The current problem was solved by the behavior.
+                if (StrategyFn::goalStackEmpty()) {
+                    // There are no more problems to be solved, we're done.
+                    ROS_INFO("[robo_magellan_strategy_node] WOO HOO! SUCCESS!");
+                    return;
+                } else {
+                    // There are still other problems to be solved. Start again.
+                    break;
+                }
+            } else if (result == StrategyFn::FAILED) {
+                // The current behavior tried by failed to solve the problem.
+                // Just carry on, giving the problem to the other behaviors.
+                continue;
+            }
         }
     }
 }
