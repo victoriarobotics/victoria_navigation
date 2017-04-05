@@ -53,18 +53,6 @@ protected:
 	ros::Publisher current_strategy_pub_;
 	ros::Publisher strategy_status_publisher_;
 
-	std::string last_reported_strategy_;				// To prevent useless publication of same information.
-
-	void publishCurrentStragety(const std::string& strategy) {
-		std_msgs::String msg;
-		msg.data = strategy;
-		if (strategy != last_reported_strategy_) {
-			last_reported_strategy_ = strategy;
-			current_strategy_pub_.publish(msg);
-			ROS_INFO_COND(do_debug_strategy_, "[StrategyFn::publishCurrentStragety] strategy: %s", strategy.c_str());
-		}
-	}
-
 	void publishStrategyProgress(const std::string& strategy_name, const std::string& progress) {
 		static std::map<std::string, std::string> last_progress_message;
 		actionlib_msgs::GoalStatus 	goal_status;
