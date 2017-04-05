@@ -139,21 +139,35 @@ private:
 public:
 	RESULT_T tick();
 
-	std::string goalName() { return "/strategy/solve_robomagellan"; }
+	const std::string& goalName() {
+		static const std::string goal_name = "/strategy/solve_robomagellan";
+		return goal_name;
+	}
 
-	std::string name() { return std::string("SolveRobomMagellan"); };
+	const std::string& name() { 
+		static const std::string name = "SolveRobomMagellan";
+		return name;
+	};
 
 	static SolveRobomMagellan& singleton();
 
-	std::string stateName(STATE state) {
+	const std::string& stateName(STATE state) {
+		static const std::string setup = "SETUP";
+		static const std::string move_to_gps_point = "MOVE_TO_GPS_POINT";
+		static const std::string find_cone_in_camera = "FIND_CONE_IN_CAMERA";
+		static const std::string move_to_cone = "MOVE_TO_CONE";
+		static const std::string move_from_cone = "MOVE_FROM_CONE";
+		static const std::string advance_to_next_point = "ADVANCE_TO_NEXT_POINT";
+		static const std::string unknown = "!!UNKNOWN!!";
+
 		switch (state) {
-			case SETUP:					return "SETUP";
-			case MOVE_TO_GPS_POINT:		return "MOVE_TO_GPS_POINT";
-			case FIND_CONE_IN_CAMERA:	return "FIND_CONE_IN_CAMERA";
-			case MOVE_TO_CONE:			return "MOVE_TO_CONE";
-			case MOVE_FROM_CONE:		return "MOVE_FROM_CONE";
-			case ADVANCE_TO_NEXT_POINT:	return "ADVANCE_TO_NEXT_POINT";
-			default:					return "!!UNKNOWN!!";
+			case SETUP:					return setup;
+			case MOVE_TO_GPS_POINT:		return move_to_gps_point;
+			case FIND_CONE_IN_CAMERA:	return find_cone_in_camera;
+			case MOVE_TO_CONE:			return move_to_cone;
+			case MOVE_FROM_CONE:		return move_from_cone;
+			case ADVANCE_TO_NEXT_POINT:	return advance_to_next_point;
+			default:					return unknown;
 		}
 	}
 

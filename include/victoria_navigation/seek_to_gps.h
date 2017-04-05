@@ -196,18 +196,29 @@ private:
 public:
 	RESULT_T tick();
 
-	std::string goalName() { return "/strategy/seek_to_gps_point"; }
+	const std::string& goalName() {
+		static const std::string goal_name = "/strategy/seek_to_gps_point";
+		return goal_name;
+	}
 
-	std::string name() { return std::string("SeekToGps"); };
+	const std::string& name() {
+		static const std::string name = "SeekToGps";
+		return name;
+	}
 
 	static SeekToGps& singleton();
 
-	std::string stateName(STATE state) {
+	const std::string& stateName(STATE state) {
+		static const std::string seeking_point = "kSEEKING_POINT";
+		static const std::string setup = "kSETUP";
+		static const std::string rotating_to_heading = "kROTATING_TO_HEADING";
+		static const std::string unknown = "!!UNKNOWN!!";
+
 		switch (state) {
-			case kSEEKING_POINT:					return "kSEEKING_POINT";
-			case kSETUP:							return "kSETUP";
-			case kROTATING_TO_HEADING:				return "kROTATING_TO_HEADING";
-			default:								return "!!UNKNOWN!!";
+			case kSEEKING_POINT:					return seeking_point;
+			case kSETUP:							return setup;
+			case kROTATING_TO_HEADING:				return rotating_to_heading;
+			default:								return unknown;
 		}
 	}
 

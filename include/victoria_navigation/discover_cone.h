@@ -101,17 +101,27 @@ private:
 public:
 	RESULT_T tick();
 
-	std::string goalName() { return "/strategy/need_to_discover_cone"; }
+	const std::string& goalName() {
+		static std::string need_to_discover_cone = "/strategy/need_to_discover_cone";
+		return need_to_discover_cone;
+	}
 
-	std::string name() { return std::string("DiscoverCone"); };
+	const std::string& name() { 
+		static std::string name = "DiscoverCone";
+		return name;
+	}
 
 	static DiscoverCone& singleton();
 
-	std::string stateName(STATE state) {
+	const std::string& stateName(STATE state) {
+		static const std::string capture_odometry = "kCAPTURE_ODOMETRY";
+		static const std::string rotating_to_discover = "kROTATING_TO_DISCOVER";
+		static const std::string unknown = "!!UNNOWN!!";
+
 		switch (state) {
-			case kCAPTURE_ODOMETRY:					return "kCAPTURE_ODOMETRY";
-			case kROTATING_TO_DISCOVER:				return "kROTATING_TO_DISCOVER";
-			default:								return "!!UNKNOWN!!";
+			case kCAPTURE_ODOMETRY:					return capture_odometry;
+			case kROTATING_TO_DISCOVER:				return rotating_to_discover;
+			default:								return unknown;
 		}
 	}
 

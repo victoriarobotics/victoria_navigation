@@ -82,17 +82,27 @@ private:
 public:
 	RESULT_T tick();
 
-	std::string goalName() { return "/strategy/need_to_move_cone"; }
+	const std::string& goalName() {
+		static const std::string goal_name = "/strategy/need_to_move_cone";
+		return goal_name;
+	}
 
-	std::string name() { return std::string("MoveToCone"); };
+	const std::string& name() {
+		static const std::string name = "MoveToCone";
+		return name;
+	}
 
 	static MoveToCone& singleton();
 
-	std::string stateName(STATE state) {
+	const std::string& stateName(STATE state) {
+		static const std::string moving_to_centering_position = "kMOVING_TO_CENTERING_POSITION";
+		static const std::string moving_to_touch = "kMOVING_TO_TOUCH";
+		static const std::string unknown = "!!UNKNOWN!!";
+
 		switch (state) {
-			case kMOVING_TO_CENTERING_POSITION:		return "kMOVING_TO_CENTERING_POSITION";
-			case kMOVING_TO_TOUCH:					return "kMOVING_TO_TOUCH";
-			default:								return "!!UNKNOWN!!";
+			case kMOVING_TO_CENTERING_POSITION:		return moving_to_centering_position;
+			case kMOVING_TO_TOUCH:					return moving_to_touch;
+			default:								return unknown;
 		}
 	}
 

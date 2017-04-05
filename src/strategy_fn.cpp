@@ -1,6 +1,6 @@
 #include "victoria_navigation/strategy_fn.h"
 
-const char* StrategyFn::RESULT_STR[] = {
+const std::string StrategyFn::G_RESULT_STR_[] = {
 		"UNUSED_START",
 		"FAILED",
 		"FATAL",
@@ -10,7 +10,7 @@ const char* StrategyFn::RESULT_STR[] = {
 		"UNUSED_END"
 };
 
-const std::string StrategyFn::g_empty_string = "";
+const std::string StrategyFn::G_EMPTY_STRING_ = "";
 std::vector<StrategyFn::GOAL_T> StrategyFn::g_goal_stack_;
 std::vector<StrategyFn::GPS_POINT> StrategyFn::g_point_stack_;
 StrategyFn::RESULT_T StrategyFn::g_last_goal_result_;
