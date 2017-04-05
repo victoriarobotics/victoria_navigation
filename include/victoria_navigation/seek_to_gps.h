@@ -91,11 +91,11 @@
 
 class SeekToGps : public StrategyFn {
 private:
-	typedef enum {
+	enum STATE {
 		kSEEKING_POINT,			// Move robot towards the current GPS point.
 		kSETUP,					// Gather initial state before attempting to get close to the GPS point.
 		kROTATING_TO_HEADING
-	} STATE;
+	};
 
 	// Parameters.
 	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.

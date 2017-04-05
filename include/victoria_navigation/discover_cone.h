@@ -56,10 +56,10 @@
 
 class DiscoverCone : public StrategyFn {
 private:
-	typedef enum {
+	enum STATE {
 		kCAPTURE_ODOMETRY,		// Capture the current Odometry.
 		kROTATING_TO_DISCOVER	// Rotate until a RoboMagellan cone is discovered.
-	} STATE;
+	};
 
 	// Parameters.
 	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.

@@ -58,14 +58,14 @@
 //
 class SolveRobomMagellan : public StrategyFn {
 private:
-	typedef enum {
+	enum STATE {
 		SETUP,					// Capture initial state.
 		MOVE_TO_GPS_POINT,		// Get close to a waypoint.
 		FIND_CONE_IN_CAMERA,	// Position the robot so it can see a RoboMagellan cone.
 		MOVE_TO_CONE,			// Move to the cone.
 		MOVE_FROM_CONE,			// Move away from the cone, setting up to move to the next waypoint.
 		ADVANCE_TO_NEXT_POINT	// Advance to the next waypoint.
-	} STATE;
+	};
 
 	// Parameters.
 	std::string fix_topic_name_;				// Topic name containing fix message.

@@ -26,7 +26,7 @@ public:
 		double distance;	// Distance to point.
 	} GPS_POINT;
 
-	typedef enum {
+	enum RESULT_T {
 		UNUSED_START = 0,	// Do not use, must be first element.
 		FAILED,				// Strategy failed, do not continue.
 		FATAL,				// Something is fatally wrong.
@@ -34,7 +34,7 @@ public:
 		RUNNING,			// Strategy is in progress.
 		SUCCESS,			// Strategy succeeded, continue on.
 		UNUSED_END			// Do not use, must be last element.
-	} RESULT_T;
+	};
 
 protected:
 	static const char* RESULT_STR[];		// Map RESULT_T enum to string.

@@ -48,10 +48,10 @@
 
 class MoveToCone : public StrategyFn {
 private:
-	typedef enum {
+	enum STATE {
 		kMOVING_TO_CENTERING_POSITION,	// Rotate so the cone is more or less dead center ahead.
 		kMOVING_TO_TOUCH				// Move forward to touch the cone.
-	} STATE;
+	};
 
 	// Parameters.
 	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
