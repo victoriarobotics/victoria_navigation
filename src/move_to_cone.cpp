@@ -89,8 +89,13 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 		return setGoalResult(FAILED); // No object found.
 	}
 
-	if (state_ == kMOVING_TO_CENTERING_POSITION) {
-		long threshold_area = (last_object_detected_.image_height * last_object_detected_.image_width / 2);
+	int image_width = 0;
+	int object_x = 0;
+	long threshold_area = 0;
+
+	switch (state_) {
+	case kMOVING_TO_CENTERING_POSITION:
+		threshold_area = (last_object_detected_.image_height * last_object_detected_.image_width / 2);
 		if (last_object_detected_.object_area > threshold_area) {
 			//### Fake test to stop when close.
 			resetGoal();
@@ -105,8 +110,8 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			return setGoalResult(SUCCESS);
 		}
 	
-		int image_width = last_object_detected_.image_width;
-		int object_x = last_object_detected_.object_x;
+		image_width = last_object_detected_.image_width;
+		object_x = last_object_detected_.object_x;
 		if (abs((image_width / 2) - object_x) < (image_width / 40)) {
 			// Heading generally in the right direction.
 			cmd_vel.linear.x = 0.15; //### Arbitrary.
@@ -124,10 +129,13 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 		}
 
 		result = RUNNING;
-	} else if (state_ == kMOVING_TO_TOUCH) {
+		break;
+
+	case kMOVING_TO_TOUCH:
 		ss << "FATAL: Unimplemented state kMOVING_TO_TOUCH";
 		return setGoalResult(FATAL);
-	} else {
+
+	default:
 		ss << "FATAL: invalid state";
 		return setGoalResult(FATAL);
 	}

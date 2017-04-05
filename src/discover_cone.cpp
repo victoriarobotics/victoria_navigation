@@ -122,8 +122,13 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	// publishing Odometry message. An alternate strategy would be to just begin rotation
 	// and, knowing how fast the robot should be rotating, to stop when the robot should
 	// have completed at least one 360 degree rotation.
+	tf::Quaternion previous_tf_quat;
+	tf::Quaternion current_tf_quat;
+	double originalYaw = 0.0;
+	double currentYaw = 0.0;
 
-	if (state_ == kCAPTURE_ODOMETRY) {
+	switch (state_) {
+	case kCAPTURE_ODOMETRY:
 		starting_Odometry_msg_ = last_Odometry_msg_;
 		previous_pose_ = last_Odometry_msg_.pose.pose.orientation;
 		starting_yaw_ = normalizeEuler(tf::getYaw(starting_Odometry_msg_.pose.pose.orientation));
@@ -131,15 +136,15 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		state_ = kROTATING_TO_DISCOVER;	// We have a starting orientation, go to the begin-rotation strategy.
 		ss << "Got Odometry, begin rotation";
 		result = RUNNING;
-	} else if (state_ == kROTATING_TO_DISCOVER) {
+		break;
+
+	case kROTATING_TO_DISCOVER:
 		// No cone yet discovered (it would have been handled above), so rotate a bit if not already
 		// completed a full circle.
-		tf::Quaternion previous_tf_quat;
-		tf::Quaternion current_tf_quat;
 		tf::quaternionMsgToTF(previous_pose_, previous_tf_quat);
 		tf::quaternionMsgToTF(last_Odometry_msg_.pose.pose.orientation, current_tf_quat);
-		double originalYaw = normalizeEuler(tf::getYaw(starting_Odometry_msg_.pose.pose.orientation) * 360.0 / (2 * M_PI));
-		double currentYaw = normalizeEuler(tf::getYaw(last_Odometry_msg_.pose.pose.orientation) * 360.0 / (2 * M_PI));
+		originalYaw = normalizeEuler(tf::getYaw(starting_Odometry_msg_.pose.pose.orientation) * 360.0 / (2 * M_PI));
+		currentYaw = normalizeEuler(tf::getYaw(last_Odometry_msg_.pose.pose.orientation) * 360.0 / (2 * M_PI));
 		total_rotated_yaw_ += abs(previous_tf_quat.angleShortestPath(current_tf_quat));
 		previous_pose_ = last_Odometry_msg_.pose.pose.orientation;
 
@@ -161,6 +166,12 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 			cmd_vel_pub_.publish(cmd_vel);
 			result = RUNNING;
 		}
+
+		break;
+
+	default:
+		ss << ". INVALID STATE";
+		break;
 	}
 
 	publishStrategyProgress("DiscoverCone::tick", ss.str());

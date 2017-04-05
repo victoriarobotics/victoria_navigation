@@ -117,10 +117,11 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 		return RUNNING;
 	}
 
-	if (state_ == SETUP) {
+	int point_number = 0;
+	sensor_msgs::NavSatFix previous_point = last_Fix_msg_;  // Implied starting point is the current GPS fix.
+	switch (state_) {
+	case SETUP:
 		// Capture the initial state.
-		int point_number = 0;
-		sensor_msgs::NavSatFix previous_point = last_Fix_msg_;  // Implied starting point is the current GPS fix.
 		for (YAML::const_iterator yamlPoint = waypoints_["gps_points"].begin(); yamlPoint != waypoints_["gps_points"].end(); yamlPoint++) {
 			// Compute the heading and distance from one point to the next for all points.
 			YAML::Node n = *yamlPoint;
@@ -179,7 +180,10 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 		// ss << "LL;FFFFFF;Moving to point: " << (point_number - 1);
         annotator_request_.request.annotation = "LL;FFFFFF;Moving to point";
         coneDetectorAnnotatorService_.call(annotator_request_);
-	} else if (state_ == MOVE_TO_GPS_POINT) {
+
+        break;
+
+	case MOVE_TO_GPS_POINT:
 		if (lastGoalResult() == SUCCESS) {
 			ROS_INFO("[SolveRobomMagellan::tick] succeeded in SeekToGps for point: %ld", index_next_point_to_seek_);
 			ss << "SeekToGps successful to point: ";
@@ -207,7 +211,10 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 	        coneDetectorAnnotatorService_.call(annotator_request_);
 			return setGoalResult(FATAL);
 		}
-	} else if (state_ == FIND_CONE_IN_CAMERA) {
+
+		break;
+
+	case FIND_CONE_IN_CAMERA:
 		if (lastGoalResult() == SUCCESS) {
 			ROS_INFO("[SolveRobomMagellan::tick] succeeded in DiscoverCone for point: %ld", index_next_point_to_seek_);
 			StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
@@ -226,7 +233,10 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 	        coneDetectorAnnotatorService_.call(annotator_request_);
 			return setGoalResult(FATAL);
 		}
-	} else if (state_ == MOVE_TO_CONE) {
+
+		break;
+
+	case MOVE_TO_CONE:
 		if (lastGoalResult() == SUCCESS) {
 			ROS_INFO("[SolveRobomMagellan::tick] succeeded in MoveToCone for point: %ld", index_next_point_to_seek_);
 			//##### StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
@@ -245,7 +255,10 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 	        coneDetectorAnnotatorService_.call(annotator_request_);
 			return setGoalResult(FATAL);
 		}
-	} else if (state_ == MOVE_FROM_CONE) {
+
+		break;
+
+	case MOVE_FROM_CONE:
 		if (lastGoalResult() == SUCCESS) {
 			ROS_INFO("[SolveRobomMagellan::tick] succeeded in MoveFromCone for point: %ld", index_next_point_to_seek_);
 			state_ = ADVANCE_TO_NEXT_POINT;
@@ -264,7 +277,10 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 	        coneDetectorAnnotatorService_.call(annotator_request_);
 			return setGoalResult(FATAL);
 		}
-	} else if (state_ == ADVANCE_TO_NEXT_POINT) {
+
+		break;
+
+	case ADVANCE_TO_NEXT_POINT:
 		index_next_point_to_seek_++;
 		if (index_next_point_to_seek_ >= gps_points_.size()) {
 			resetGoal();
@@ -285,12 +301,16 @@ StrategyFn::RESULT_T SolveRobomMagellan::tick() {
 	        coneDetectorAnnotatorService_.call(annotator_request_);
 			result = RUNNING;
 		}
-	} else {
+
+		break;
+
+	default:
 		ROS_ERROR("INVALID state_ value");
 
         annotator_request_.request.annotation = "LL;FFFFFF;FATAL invalid state value";;
         coneDetectorAnnotatorService_.call(annotator_request_);
 		return setGoalResult(FATAL);
+		break;
 	}
 
 	publishStrategyProgress("SolveRobomMagellan::tick", ss.str());

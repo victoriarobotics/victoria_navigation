@@ -39,7 +39,7 @@
 //		  to that topic. The robot will end up in a stopped state at the end of this behavior.
 //
 // The behavior works as follows:
-//	* Wait until messages are received from the cone detecto.
+//	* Wait until messages are received from the cone detector.
 //  * If the cone is not seen, indicate FAILURE and stop the robot.
 //	* If the cone is not more or less dead ahead, rotate a bit so that it is more centered.
 //	* [TEMPORARY] if the cone is "very close", stop the robot and indicate success.

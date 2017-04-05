@@ -247,13 +247,16 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 	goal_yaw_degrees_delta = goal_yaw_degrees_ - corrected_degrees;  // How far off is the current heading?
 	ss << ", goal_deg: " << std::setprecision(4) << goal_yaw_degrees_;
 	ss << ", goal_degrees_d: " << std::setprecision(4) << goal_yaw_degrees_delta;
-	if (state_ == kSETUP) {
+	switch (state_) {
+	case kSETUP:
 		// The first time through, just gather data.
 		// Set up so that the next time through, the robot is rotated to point to the goal waypoint.
 		ss << ". Setting up";
 		state_ = kROTATING_TO_HEADING;
 		result = RUNNING;
-	} else if (state_ == kROTATING_TO_HEADING) {
+		break;
+
+	case kROTATING_TO_HEADING:
 		// The robot may not be pionting towards the goal waypoint. If not, rotate so it is.
 		if (abs(goal_yaw_degrees_delta) < goal_yaw_degrees_delta_threshold_) {
 			// Close enough to desired heading. Just move.
@@ -271,7 +274,10 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 			ss << ". Rotating, z: " << std::setprecision(3) << cmd_vel.angular.z;
 			result = RUNNING;
 		}
-	} else if (state_ == kSEEKING_POINT) {
+
+		break;
+
+	case kSEEKING_POINT:
 		// The robot is heading in the right direction and isn't close enough yet.
 		// Move the robot forward a bit each time the behavior is invoked. 
 		if (abs(goal_yaw_degrees_delta) >= goal_yaw_degrees_delta_threshold_) {
@@ -287,8 +293,12 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 			ss << ". In state kSEEKING_POINT, moving forward, x: " << std::setprecision(3) << cmd_vel.linear.x;
 			result = RUNNING;
 		}
-	} else {
+
+		break;
+
+	default:
 		ss << ". INVALID STATE";
+		break;
 	}
 
 
