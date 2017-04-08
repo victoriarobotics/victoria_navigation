@@ -98,15 +98,17 @@ private:
 	};
 
 	// Parameters.
-	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
+	std::string cmd_vel_topic_name_;		// Topic name containing cmd_vel message.
 	std::string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
-	std::string fix_topic_name_;				// Topic name containing fix message.
-	double gps_close_distance_meters_;	// How close to seek the point using GPS before assuming it's "close enough".
-	std::string imu_topic_name_;				// Topic name containing IMU message. Used only if use_imu_ => true.
-	double magnetic_declination_;		// Magnetic declination adjustment to be applied to IMU.
+	std::string fix_topic_name_;			// Topic name containing fix message.
+	double gps_close_distance_meters_;		// How close to seek the point using GPS before assuming it's "close enough".
+	std::string imu_topic_name_;			// Topic name containing IMU message. Used only if use_imu_ => true.
+	float linear_move_meters_per_sec_;		// Rate to move forward (meters/sec).
+	double magnetic_declination_;			// Magnetic declination adjustment to be applied to IMU.
 	std::string odometry_topic_name_;		// Topic name containing Odometry message.
-	bool solve_using_odom_;				// Solve using Odomentry only, no GPS or IMU.
-	bool use_imu_;						// True => use IMU instead of Odometry as true robot heading.
+	bool solve_using_odom_;					// Solve using Odomentry only, no GPS or IMU.
+	bool use_imu_;							// True => use IMU instead of Odometry as true robot heading.
+	float yaw_turn_radians_per_sec_;		// Rate to turn around z azis (radians/sec)
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;

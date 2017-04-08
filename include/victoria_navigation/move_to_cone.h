@@ -65,6 +65,7 @@ private:
 
 	// Algorithm variables.
 	STATE state_;
+	int sequential_detection_failures_;
 	
 	// Process one cone detector topic message.
 	long int count_ObjectDetector_msgs_received_;

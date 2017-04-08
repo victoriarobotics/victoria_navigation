@@ -38,17 +38,21 @@ SeekToGps::SeekToGps() :
 	count_ObjectDetector_msgs_received_(0),
 	count_Odometry_msgs_received_(0),
 	goal_yaw_degrees_delta_threshold_(3.0),
-	state_(kSETUP)
+	linear_move_meters_per_sec_(0.4),
+	state_(kSETUP),
+	yaw_turn_radians_per_sec_(0.4)
 {
 	assert(ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_));
 	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
 	assert(ros::param::get("~fix_topic_name", fix_topic_name_));
 	assert(ros::param::get("~gps_close_distance_meters", gps_close_distance_meters_));
 	assert(ros::param::get("~imu_topic_name", imu_topic_name_));
+	assert(ros::param::get("~linear_move_meters_per_sec", linear_move_meters_per_sec_));
 	assert(ros::param::get("~magnetic_declination", magnetic_declination_));
 	assert(ros::param::get("~odometry_topic_name", odometry_topic_name_));
 	assert(ros::param::get("~solve_using_odom", solve_using_odom_));
 	assert(ros::param::get("~use_imu", use_imu_));
+	assert(ros::param::get("~yaw_turn_radians_per_sec", yaw_turn_radians_per_sec_));
 	
 	cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_name_.c_str(), 1);
 
@@ -60,13 +64,15 @@ SeekToGps::SeekToGps() :
 
 	ROS_INFO("[SeekToGps] PARAM cmd_vel_topic_name: %s", cmd_vel_topic_name_.c_str());
 	ROS_INFO("[SeekToGps] PARAM cone_detector_topic_name: %s", cone_detector_topic_name_.c_str());
-	ROS_INFO("[SeekToGps] PARAM fix_topic_name_: %s", fix_topic_name_.c_str());
+	ROS_INFO("[SeekToGps] PARAM fix_topic_name: %s", fix_topic_name_.c_str());
 	ROS_INFO("[SeekToGps] PARAM gps_close_distance_meters: %7.4f", gps_close_distance_meters_);
-	ROS_INFO("[SeekToGps] PARAM imu_topic_name_: %s", imu_topic_name_.c_str());
-	ROS_INFO("[SeekToGps] PARAM magnetic_declination_: %7.4f", magnetic_declination_);
+	ROS_INFO("[SeekToGps] PARAM imu_topic_name: %s", imu_topic_name_.c_str());
+	ROS_INFO("[SeekToGps] PARAM linear_move_meters_per_sec: %7.4f", linear_move_meters_per_sec_);
+	ROS_INFO("[SeekToGps] PARAM magnetic_declination: %7.4f", magnetic_declination_);
 	ROS_INFO("[SeekToGps] PARAM odometry_topic_name: %s", odometry_topic_name_.c_str());
-	ROS_INFO("[DiscoverCone] PARAM solve_using_odom: %s", solve_using_odom_ ? "TRUE" : "FALSE");
+	ROS_INFO("[SeekToGps] PARAM solve_using_odom: %s", solve_using_odom_ ? "TRUE" : "FALSE");
 	ROS_INFO("[SeekToGps] PARAM use_imu: %s", use_imu_ ? "TRUE" : "FALSE");
+	ROS_INFO("[SeekToGps] PARAM yaw_turn_radians_per_sec: %7.4f", yaw_turn_radians_per_sec_);
 }
 
 // Convert an Euler angle into a range of [0 .. 360).
@@ -210,9 +216,9 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 		resetGoal();	// Reset the global state so the behavior can be used for another problem.
 
 		// Stop the robot.
-		cmd_vel.linear.x = 0;
-		cmd_vel.angular.z = 0.0;
-		cmd_vel_pub_.publish(cmd_vel);
+		// cmd_vel.linear.x = 0;
+		// cmd_vel.angular.z = 0.0;
+		// cmd_vel_pub_.publish(cmd_vel);
 
 		// Publish information.
 		ss << ". SUCCESS close to point, STOP";
@@ -268,7 +274,7 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 			// Need to rotate towards target.
 			// Just rotate a bit each time the behavior is invoked.
 			cmd_vel.linear.x = 0;
-			cmd_vel.angular.z = goal_yaw_degrees_delta > 0 ? 0.4 : -0.4; //TODO ### Make configurable.
+			cmd_vel.angular.z = goal_yaw_degrees_delta > 0 ? yaw_turn_radians_per_sec_ : -yaw_turn_radians_per_sec_;
 			cmd_vel_pub_.publish(cmd_vel);
 
 			ss << ". Rotating, z: " << std::setprecision(3) << cmd_vel.angular.z;
@@ -287,7 +293,7 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 			state_ = kROTATING_TO_HEADING;
 			result = RUNNING;
 		} else {
-			cmd_vel.linear.x = 0.2;  // TODO ### Make configurable.
+			cmd_vel.linear.x = linear_move_meters_per_sec_;  // TODO ### Make configurable.
 			cmd_vel.angular.z = 0;
 			cmd_vel_pub_.publish(cmd_vel);
 			ss << ". In state kSEEKING_POINT, moving forward, x: " << std::setprecision(3) << cmd_vel.linear.x;

@@ -33,6 +33,7 @@
 
 MoveToCone::MoveToCone() :
 	count_ObjectDetector_msgs_received_(0),
+	sequential_detection_failures_(0),
 	state_(kMOVING_TO_CENTERING_POSITION)
 {
 	assert(ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_));
@@ -74,19 +75,25 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 
 	if (!last_object_detected_.object_detected) {
 		// Failure, lost sight of the cone.
-		resetGoal();
+		if (sequential_detection_failures_++ > 30) {
+			resetGoal();
 
-		cmd_vel.linear.x = 0;	// Stop motion.
-		cmd_vel.angular.z = 0.0;
-		cmd_vel_pub_.publish(cmd_vel);
+			cmd_vel.linear.x = 0;	// Stop motion.
+			cmd_vel.angular.z = 0.0;
+			cmd_vel_pub_.publish(cmd_vel);
 
-		// Publish information.
-		ss << "FAILED, no object detected";
-		publishStrategyProgress("MoveToCone::tick", ss.str());
+			// Publish information.
+			ss << "FAILED, no object detected";
+			publishStrategyProgress("MoveToCone::tick", ss.str());
 
-		// Standard way to indicate failure.
-		popGoal();
-		return setGoalResult(FAILED); // No object found.
+			// Standard way to indicate failure.
+			popGoal();
+			return setGoalResult(FAILED); // No object found.
+		} else {
+			// Just ignore object detection failure to see if it's a fluke.
+		}
+	} else {
+		sequential_detection_failures_ = 0;
 	}
 
 	int image_width = 0;
