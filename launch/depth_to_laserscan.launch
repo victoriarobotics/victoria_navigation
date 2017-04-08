@@ -3,6 +3,7 @@
   
 <node name="depthimage_to_laserscan" pkg="depthimage_to_laserscan" type="depthimage_to_laserscan" > 
   <remap from="image" to="/camera/depth/image_raw"/>
+  <remap from="scan" to="/scan_depth"/>
 </node>
 
 </launch>
