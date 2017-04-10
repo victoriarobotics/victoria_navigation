@@ -57,8 +57,8 @@
 class DiscoverCone : public StrategyFn {
 private:
 	enum STATE {
-		kCAPTURE_ODOMETRY,		// Capture the current Odometry.
-		kROTATING_TO_DISCOVER	// Rotate until a RoboMagellan cone is discovered.
+		CAPTURE_ODOMETRY,		// Capture the current Odometry.
+		ROTATING_TO_DISCOVER	// Rotate until a RoboMagellan cone is discovered.
 	};
 
 	// Parameters.
@@ -75,14 +75,14 @@ private:
 
 	// Algorithm variables.
 	geometry_msgs::Quaternion previous_pose_;	// Pose from last Odometry message.
-	nav_msgs::Odometry starting_Odometry_msg_;	// Odometry mesage at start of rotation strategy.
+	nav_msgs::Odometry starting_odometry_msg_;	// Odometry mesage at start of rotation strategy.
 	double starting_yaw_;						// Starting yaw.
 	double total_rotated_yaw_;					// Integration of rotational yaw since start.
 	STATE state_;
 	
 	// Process one ConeDetector topic message.
-	long int count_ObjectDetector_msgs_received_;
-	victoria_perception::ObjectDetector last_ObjectDetector_msg_;
+	long int count_object_detector_msgs_received_;
+	victoria_perception::ObjectDetector last_object_detector_msg_;
 	void coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg);
 
 	// Reset goal. After this, someone must request the goal again and it will start over.
@@ -114,13 +114,13 @@ public:
 	static DiscoverCone& singleton();
 
 	const std::string& stateName(STATE state) {
-		static const std::string capture_odometry = "kCAPTURE_ODOMETRY";
-		static const std::string rotating_to_discover = "kROTATING_TO_DISCOVER";
+		static const std::string capture_odometry = "CAPTURE_ODOMETRY";
+		static const std::string rotating_to_discover = "ROTATING_TO_DISCOVER";
 		static const std::string unknown = "!!UNNOWN!!";
 
 		switch (state) {
-			case kCAPTURE_ODOMETRY:					return capture_odometry;
-			case kROTATING_TO_DISCOVER:				return rotating_to_discover;
+			case CAPTURE_ODOMETRY:					return capture_odometry;
+			case ROTATING_TO_DISCOVER:				return rotating_to_discover;
 			default:								return unknown;
 		}
 	}

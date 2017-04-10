@@ -34,8 +34,8 @@
 #include "victoria_perception/ObjectDetector.h"
 
 DiscoverCone::DiscoverCone() :
-	count_ObjectDetector_msgs_received_(0),
-	state_(kCAPTURE_ODOMETRY)
+	count_object_detector_msgs_received_(0),
+	state_(CAPTURE_ODOMETRY)
 {
 	assert(ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_));
 	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
@@ -46,15 +46,15 @@ DiscoverCone::DiscoverCone() :
 	cone_detector_sub_ = nh_.subscribe(cone_detector_topic_name_, 1, &DiscoverCone::coneDetectorCb, this);
 	odometry_sub_ = nh_.subscribe(odometry_topic_name_, 1, &DiscoverCone::odometryCb, this);
 
-	ROS_INFO("[DiscoverCone] PARAM cmd_vel_topic_name: %s", cmd_vel_topic_name_.c_str());
-	ROS_INFO("[DiscoverCone] PARAM cone_detector_topic_name: %s", cone_detector_topic_name_.c_str());
-	ROS_INFO("[DiscoverCone] PARAM odometry_topic_name: %s", odometry_topic_name_.c_str());
+	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM cmd_vel_topic_name: %s", cmd_vel_topic_name_.c_str());
+	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM cone_detector_topic_name: %s", cone_detector_topic_name_.c_str());
+	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM odometry_topic_name: %s", odometry_topic_name_.c_str());
 }
 
 // Capture the lates ConeDetector information
 void DiscoverCone::coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg) {
-	last_ObjectDetector_msg_ = *msg;
-	count_ObjectDetector_msgs_received_++;
+	last_object_detector_msg_ = *msg;
+	count_object_detector_msgs_received_++;
 }
 
 // Capture the lates Odometry information.
@@ -65,7 +65,7 @@ void DiscoverCone::odometryCb(const nav_msgs::OdometryConstPtr& msg) {
 
 // Reset global state so this behavior can be used to solve the next problem.
 void DiscoverCone::resetGoal() {
-	state_ = kCAPTURE_ODOMETRY;
+	state_ = CAPTURE_ODOMETRY;
 }
 
 StrategyFn::RESULT_T DiscoverCone::tick() {
@@ -78,7 +78,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		return INACTIVE;
 	}
 
-	if (count_ObjectDetector_msgs_received_ <= 0) {
+	if (count_object_detector_msgs_received_ <= 0) {
 		// Wait until ConeDetector messages are received.
 		return RUNNING;
 	}
@@ -88,7 +88,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		return RUNNING;
 	}
 
-	if (last_ObjectDetector_msg_.object_detected) {
+	if (last_object_detector_msg_.object_detected) {
 		// Success! Stop when a RoboMagellan cone is seen.
 		resetGoal();
 
@@ -98,7 +98,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 
 		// Publish information.
 		ss << " SUCCESS Object detected, STOP";
-		ss << ", area: " << last_ObjectDetector_msg_.object_area;
+		ss << ", area: " << last_object_detector_msg_.object_area;
 		publishStrategyProgress("DiscoverCone::tick", ss.str());
 
 		// Standard way to indicate success.
@@ -121,22 +121,22 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	double currentYaw = 0.0;
 
 	switch (state_) {
-	case kCAPTURE_ODOMETRY:
-		starting_Odometry_msg_ = last_Odometry_msg_;
+	case CAPTURE_ODOMETRY:
+		starting_odometry_msg_ = last_Odometry_msg_;
 		previous_pose_ = last_Odometry_msg_.pose.pose.orientation;
-		starting_yaw_ = tf::getYaw(starting_Odometry_msg_.pose.pose.orientation);
+		starting_yaw_ = tf::getYaw(starting_odometry_msg_.pose.pose.orientation);
 		total_rotated_yaw_ = 0;
-		state_ = kROTATING_TO_DISCOVER;	// We have a starting orientation, go to the begin-rotation strategy.
+		state_ = ROTATING_TO_DISCOVER;	// We have a starting orientation, go to the begin-rotation strategy.
 		ss << "Got Odometry, begin rotation";
 		result = RUNNING;
 		break;
 
-	case kROTATING_TO_DISCOVER:
+	case ROTATING_TO_DISCOVER:
 		// No cone yet discovered (it would have been handled above), so rotate a bit if not already
 		// completed a full circle.
 		tf::quaternionMsgToTF(previous_pose_, previous_tf_quat);
 		tf::quaternionMsgToTF(last_Odometry_msg_.pose.pose.orientation, current_tf_quat);
-		originalYaw = tf::getYaw(starting_Odometry_msg_.pose.pose.orientation);
+		originalYaw = tf::getYaw(starting_odometry_msg_.pose.pose.orientation);
 		currentYaw = tf::getYaw(last_Odometry_msg_.pose.pose.orientation);
 		total_rotated_yaw_ += abs(previous_tf_quat.angleShortestPath(current_tf_quat));
 		previous_pose_ = last_Odometry_msg_.pose.pose.orientation;
