@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(victoria_navigation)
 
-#set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread" )
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 set (CMAKE_BUILD_TYPE Debug )
 SET(FLAGS "-g -ggdb -g3")
 
@@ -11,6 +11,7 @@ add_definitions(-std=c++11)
 find_package(catkin REQUIRED
 	geometry_msgs
 	gps_common
+  message_generation
 	roscpp
 	roslaunch
 	rospy
@@ -32,6 +33,16 @@ find_library(YAML_CPP_LIBRARY
 
 link_directories(${YAML_CPP_LIBRARY_DIRS})
 
+## Generate services in the 'srv' folder
+add_service_files(
+  FILES
+  PushGoal.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+)
+
 catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS
@@ -43,6 +54,7 @@ catkin_package(
   sensor_msgs
   std_msgs
   DEPENDS yaml-cpp
+  CATKIN_DEPENDS message_runtime
 )
 
 include_directories(
@@ -61,6 +73,7 @@ add_executable(robo_magellan_node
 
 add_dependencies (
 	robo_magellan_node
+  victoria_navigation_generate_messages_cpp
 	${catkin_EXPORTED_TARGETS}
 )
 

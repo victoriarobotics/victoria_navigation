@@ -23,6 +23,8 @@
   <depend>gmapping</depend>
   <depend>gps_common</depend>
   <depend>map_server</depend>
+  <depend>message_generation</depend>
+  <depend>message_runtime</depend>
   <depend>move_base</depend>
   <depend>navfn</depend>
   <depend>roscpp</depend>

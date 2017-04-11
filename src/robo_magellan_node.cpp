@@ -29,11 +29,54 @@
 
 #include "victoria_navigation/discover_cone.h"
 #include "victoria_navigation/move_to_cone.h"
+#include "victoria_navigation/PushGoal.h"
 #include "victoria_navigation/seek_to_gps.h"
 #include "victoria_navigation/solve_robomagellan.h"
 #include "victoria_navigation/strategy_fn.h"
 #include "victoria_perception/AnnotateDetectorImage.h"
 #include <stdint.h>
+#include <vector>
+#include <yaml-cpp/yaml.h>
+
+const std::vector<SolveRoboMagellan::GPS_POINT>* gps_points;
+std::vector<std::string> service_goal_stack;
+ros::ServiceServer push_goal_service;
+
+void pushGoalName(std::string goal_name) {
+    ROS_INFO("[pushGoalName] goal_name: %s", goal_name.c_str());
+}
+
+bool pushGoalCb(victoria_navigation::PushGoal::Request &request,
+                victoria_navigation::PushGoal::Response &response) {
+    std::string goal_name = request.goal_name;
+    bool execute_now = request.execute_now;
+    if ((goal_name == "DiscoverCone") ||
+        (goal_name == "MoveToCone") ||
+        (goal_name == "SeekToGps") ||
+        (goal_name == "SolveRoboMagellan")) {
+        if (!request.execute_now) {
+            service_goal_stack.push_back(goal_name);
+            ROS_INFO_NAMED("robo_magellan_node", "[pushGoalCb] NO EXECUTE goal: %s", goal_name.c_str());
+        } else {
+            while (!service_goal_stack.empty()) {
+                std::string pushed_goal_name = service_goal_stack.back();
+                ROS_INFO_NAMED("robo_magellan_node", "[pushGoalCb] popping goal: %s", pushed_goal_name.c_str());
+                pushGoalName(pushed_goal_name);
+                service_goal_stack.pop_back();
+            }
+
+            pushGoalName(goal_name);
+        }
+
+        return true;
+    } else {
+        ROS_INFO_NAMED("robo_magellan_node", "goal_name must be one of DiscoverCone, MoveToCone, SeekToGps or SolveRoboMagellan");
+        response.result = "goal_name must be one of DiscoverCone, MoveToCone, SeekToGps or SolveRoboMagellan";
+        return false;
+    }
+
+    return true;
+}
 
 // Perform problem solving by iterating over each of the possible problem solvers, a.k.a.
 // behaviors. Each solver is asked if it can solve the current problem. The response is normally
@@ -116,22 +159,12 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "robo_magellan_node");
 
     // ROS node handle.
-    typedef enum {
-        kDISCOVER_CONE,
-        kMOVE_TO_CONE
-    } GOAL;
-
-    GOAL current_goal;
-    bool do_debug_strategy;
-    StrategyFn::RESULT_T result;
-
-
     ros::NodeHandle nh("~");
+    push_goal_service = nh.advertiseService("push_goal", &pushGoalCb);
+    ros::Publisher strategyStatusPublisher = nh.advertise<actionlib_msgs::GoalStatus>("/strategy", 1);
 
     // A list of all possible problem solvers/subgoals/behaviors.
     std::vector<StrategyFn*> behaviors;
-
-    ros::Publisher strategyStatusPublisher = nh.advertise<actionlib_msgs::GoalStatus>("/strategy", 1);
 
     // Add all possible behaviors to the list.
     behaviors.push_back(&DiscoverCone::singleton());
@@ -139,10 +172,12 @@ int main(int argc, char** argv) {
     behaviors.push_back(&SeekToGps::singleton());
     behaviors.push_back(&SolveRoboMagellan::singleton());
 
+    gps_points = SolveRoboMagellan::singleton().getGpsPoints();
+
     ros::ServiceClient coneDetectorAnnotatorService = nh.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
 
     // Set the initial problem to be solved.
-    StrategyFn::pushGoal(SolveRoboMagellan::singleton().goalName(), "0");
+    //StrategyFn::pushGoal(SolveRoboMagellan::singleton().goalName(), "0");
 
     //StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
    

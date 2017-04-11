@@ -66,25 +66,21 @@ SolveRoboMagellan::SolveRoboMagellan() :
 	assert(ros::param::get("~fix_topic_name", fix_topic_name_));
 	assert(ros::param::get("~waypoint_yaml_path", waypoint_yaml_path_));
 	
-	assert(fix_sub_ = nh_.subscribe(fix_topic_name_, 1, &SolveRoboMagellan::fixCb, this));
+	assert(fix_sub_ = nh_.subscribe(fix_topic_name_, 1, &SolveRoboMagellan::fixCb));
 
 	ROS_INFO("[SolveRoboMagellan] PARAM fix_topic_name: %s", fix_topic_name_.c_str());
 	ROS_INFO("[SolveRoboMagellan] PARAM waypoint_yaml_path: %s", waypoint_yaml_path_.c_str());
 
-	waypoints_ = YAML::LoadFile(waypoint_yaml_path_);
-	if (waypoints_["gps_points"].Type() != YAML::NodeType::Sequence) {
-		ROS_ERROR("[SolveRoboMagellan] Unable to load yaml file: %s", waypoint_yaml_path_.c_str());
-	} else {
-		ROS_INFO("[SolveRoboMagellan] Number of GPS points in the set: %ld", waypoints_["gps_points"].size());
-	}
+	createGpsPointSet(waypoint_yaml_path_);
 
     coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
 }
 
 // Capture the lates Fix information.
 void SolveRoboMagellan::fixCb(const sensor_msgs::NavSatFixConstPtr& msg) {
-	last_Fix_msg_ = *msg;
-	count_Fix_msgs_received_++;
+	if (g_count_Fix_msgs_received_ == 0) SolveRoboMagellan::g_first_Fix_msg_ = *msg;
+	SolveRoboMagellan::g_last_Fix_msg_ = *msg;
+	SolveRoboMagellan::g_count_Fix_msgs_received_++;
 }
 
 // Convert an Euler angle into a range of [0 .. 360).
@@ -101,6 +97,68 @@ void SolveRoboMagellan::resetGoal() {
 	state_ = SETUP;
 }
 
+void SolveRoboMagellan::createGpsPointSet(std::string waypoint_yaml_path) {
+	while (g_count_Fix_msgs_received_ <= 0) { ros::spinOnce(); }
+
+	int point_number = 0;
+	std::vector<GPS_POINT> gps_points;				// Ordered list of waypoints to traverse.
+	YAML::Node waypoints = YAML::LoadFile(waypoint_yaml_path);
+	sensor_msgs::NavSatFix previous_point = g_first_Fix_msg_;  // Implied starting point is the current GPS fix.
+
+    if (waypoints["gps_points"].Type() != YAML::NodeType::Sequence) {
+        ROS_ERROR("[robo_magellan_node] Unable to load yaml file: %s", waypoint_yaml_path.c_str());
+        return;
+    } else {
+        ROS_INFO("[robo_magellan_node] Number of GPS points in the set: %ld", waypoints["gps_points"].size());
+    }
+
+	for (YAML::const_iterator yamlPoint = waypoints["gps_points"].begin(); yamlPoint != waypoints["gps_points"].end(); yamlPoint++) {
+		// Compute the heading and distance from one point to the next for all points.
+		YAML::Node n = *yamlPoint;
+		GPS_POINT gps_point;
+		gps_point.latitude = n["latitude"].as<double>();
+		gps_point.longitude = n["longitude"].as<double>();
+		gps_point.has_cone = n["has_cone"].as<bool>();
+
+		sensor_msgs::NavSatFix yaml_point_as_fix;
+		yaml_point_as_fix.latitude = gps_point.latitude;
+		yaml_point_as_fix.longitude = gps_point.longitude;
+		double point_bearing_gps_degrees = bearing(previous_point, yaml_point_as_fix);
+		double point_distance = distance(previous_point, yaml_point_as_fix);
+		double goal_yaw_degrees = normalizeEuler(90 - point_bearing_gps_degrees);;
+
+		gps_point.bearing = goal_yaw_degrees;
+		gps_point.x = point_distance * cos(radians(goal_yaw_degrees));
+		gps_point.y = point_distance * sin(radians(goal_yaw_degrees));
+		gps_point.distance = point_distance;
+		gps_points_.push_back(gps_point);
+		ROS_INFO("[SolveRoboMagellan::tick] point: %d"
+				  ", FROM lat: %11.7f"
+				  ", lon: %11.7f"
+				  ", TO lat: %11.7f"
+				  ", lon: %11.7f"
+				  ", distance: %7.4f"
+				  ", GPS heading: %7.4f"
+				  ", ROS heading: %7.4f"
+				  ", x: %11.7f"
+				  ", y: %11.7f"
+				  ", has_cone: %s",
+				  point_number++,
+				  previous_point.latitude,
+				  previous_point.longitude,
+				  gps_point.latitude,
+				  gps_point.longitude,
+				  gps_point.distance,
+				  point_bearing_gps_degrees,
+				  gps_point.bearing,
+				  gps_point.x,
+				  gps_point.y,
+				  gps_point.has_cone ? "TRUE" : "FALSE"
+				  );
+		previous_point = yaml_point_as_fix;
+	}
+}
+
 StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 	RESULT_T 					result = FATAL;
 	std::ostringstream 				ss;
@@ -110,65 +168,16 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 		return INACTIVE;
 	}
 
-	if (count_Fix_msgs_received_ <= 0) {
+	if (g_count_Fix_msgs_received_ <= 0) {
 		// Wait until Fix messages are received.
         annotator_request_.request.annotation = "LL;FFFFFF;Wait for /fix";
         coneDetectorAnnotatorService_.call(annotator_request_);
 		return RUNNING;
 	}
 
-	int point_number = 0;
-	sensor_msgs::NavSatFix previous_point = last_Fix_msg_;  // Implied starting point is the current GPS fix.
 	switch (state_) {
 	case SETUP:
 		// Capture the initial state.
-		for (YAML::const_iterator yamlPoint = waypoints_["gps_points"].begin(); yamlPoint != waypoints_["gps_points"].end(); yamlPoint++) {
-			// Compute the heading and distance from one point to the next for all points.
-			YAML::Node n = *yamlPoint;
-			GPS_POINT gps_point;
-			gps_point.latitude = n["latitude"].as<double>();
-			gps_point.longitude = n["longitude"].as<double>();
-			gps_point.has_cone = n["has_cone"].as<bool>();
-
-			sensor_msgs::NavSatFix yaml_point_as_fix;
-			yaml_point_as_fix.latitude = gps_point.latitude;
-			yaml_point_as_fix.longitude = gps_point.longitude;
-			double point_bearing_gps_degrees = bearing(previous_point, yaml_point_as_fix);
-			double point_distance = distance(previous_point, yaml_point_as_fix);
-			double goal_yaw_degrees_ = normalizeEuler(90 - point_bearing_gps_degrees);;
-
-			gps_point.bearing = goal_yaw_degrees_;
-			gps_point.x = point_distance * cos(radians(goal_yaw_degrees_));
-			gps_point.y = point_distance * sin(radians(goal_yaw_degrees_));
-			gps_point.distance = point_distance;
-			gps_points_.push_back(gps_point);
-			ROS_INFO_COND(do_debug_strategy_,
-						  "[SolveRoboMagellan::tick] point: %d"
-						  ", FROM lat: %11.7f"
-						  ", lon: %11.7f"
-						  ", TO lat: %11.7f"
-						  ", lon: %11.7f"
-						  ", distance: %7.4f"
-						  ", GPS heading: %7.4f"
-						  ", ROS heading: %7.4f"
-						  ", x: %11.7f"
-						  ", y: %11.7f"
-						  ", has_cone: %s",
-						  point_number++,
-						  previous_point.latitude,
-						  previous_point.longitude,
-						  gps_point.latitude,
-						  gps_point.longitude,
-						  gps_point.distance,
-						  point_bearing_gps_degrees,
-						  gps_point.bearing,
-						  gps_point.x,
-						  gps_point.y,
-						  gps_point.has_cone ? "TRUE" : "FALSE"
-						  );
-			previous_point = yaml_point_as_fix;
-		}
-
 		index_next_point_to_seek_ = 0;
 		pushGpsPoint(gps_points_[index_next_point_to_seek_]);
 		StrategyFn::pushGoal(SeekToGps::singleton().goalName(), "0");
@@ -176,8 +185,6 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 		ss << "Setup complete, seeking to first point.";
 		result = RUNNING;
 
-		// stringstream annotation_ss;
-		// ss << "LL;FFFFFF;Moving to point: " << (point_number - 1);
         annotator_request_.request.annotation = "LL;FFFFFF;Moving to point";
         coneDetectorAnnotatorService_.call(annotator_request_);
 
@@ -321,3 +328,8 @@ SolveRoboMagellan& SolveRoboMagellan::singleton() {
     static SolveRoboMagellan singleton_;
     return singleton_;
 }
+
+std::vector<SolveRoboMagellan::GPS_POINT> SolveRoboMagellan::gps_points_;
+long int SolveRoboMagellan::g_count_Fix_msgs_received_;
+sensor_msgs::NavSatFix SolveRoboMagellan::g_first_Fix_msg_;
+sensor_msgs::NavSatFix SolveRoboMagellan::g_last_Fix_msg_;

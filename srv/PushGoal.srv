@@ -1,0 +1,5 @@
+# Push a goal on the stack.
+string goal_name
+bool execute_now
+----
+string result

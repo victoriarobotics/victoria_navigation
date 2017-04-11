@@ -76,25 +76,26 @@ private:
 
 	// Algorithm variables.
 	ros::ServiceClient coneDetectorAnnotatorService_;	// For annotating the cone detector image.
-	std::vector<GPS_POINT> gps_points_;				// Ordered list of waypoints to traverse.
-	long int index_next_point_to_seek_;			// Index into list of GPS points to seek to next.
+	static std::vector<GPS_POINT> gps_points_;					// Ordered list of waypoints to traverse.
+	long int index_next_point_to_seek_;					// Index into list of GPS points to seek to next.
 	victoria_perception::AnnotateDetectorImage annotator_request_;	// The annotation request.
-	STATE state_;								// State of state machine.
-	YAML::Node waypoints_;						// Waypoints in yaml format.
+	STATE state_;										// State of state machine.
+	YAML::Node waypoints_;								// Waypoints in yaml format.
 	
 	// ROS node handle.
 	ros::NodeHandle nh_;
 
 	// Process one Fix topic message.
-	long int count_Fix_msgs_received_;
-	sensor_msgs::NavSatFix last_Fix_msg_;
-	void fixCb(const sensor_msgs::NavSatFixConstPtr& msg);
+	static long int g_count_Fix_msgs_received_;
+	static sensor_msgs::NavSatFix g_first_Fix_msg_;
+	static sensor_msgs::NavSatFix g_last_Fix_msg_;
+	static void fixCb(const sensor_msgs::NavSatFixConstPtr& msg);
 
 	static double degrees(double x) { return x * 180.0 / M_PI; }
 	static double radians(double x) { return x * M_PI / 180.0; }
 
  	// Calculate bearing between two GPS points--accurate for distances for RoboMagellan.
-	double bearing(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
+	static double bearing(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = radians(from.latitude);
 	    double lon1 = radians(from.longitude);
 	    double lat2 = radians(to.latitude);
@@ -106,11 +107,13 @@ private:
 	 
 	    return degrees(atan2(y, x)); 
 	}
+
+	static void createGpsPointSet(std::string waypoint_yaml_path);
 	 
 	 
  	// Calculate distance between two GPS points--accurate for distances for RoboMagellan.
  	// See the 'haversine' formula in http://www.movable-type.co.uk/scripts/latlong.html
-	double distance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
+	static double distance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = radians(from.latitude);
 	    double lon1 = radians(from.longitude);
 	    double lat2 = radians(to.latitude);
@@ -127,7 +130,7 @@ private:
 	}
 
 	// Normalize an Euler angle into [0..360).
-	double normalizeEuler(double yaw_degrees);
+	static double normalizeEuler(double yaw_degrees);
 
 	// Reset goal. After this, someone must request the goal again and it will start over.
 	void resetGoal();
@@ -140,6 +143,7 @@ private:
 public:
 	RESULT_T tick();
 
+	const std::vector<GPS_POINT>* getGpsPoints() { return &gps_points_; }
 	const std::string& goalName() {
 		static const std::string goal_name = "/strategy/solve_robomagellan";
 		return goal_name;
