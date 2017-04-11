@@ -59,8 +59,8 @@ void DiscoverCone::coneDetectorCb(const victoria_perception::ObjectDetectorConst
 
 // Capture the lates Odometry information.
 void DiscoverCone::odometryCb(const nav_msgs::OdometryConstPtr& msg) {
-	last_Odometry_msg_ = *msg;
-	count_Odometry_msgs_received_++;	
+	last_odometry_msg_ = *msg;
+	count_odometry_msgs_received_++;	
 }
 
 // Reset global state so this behavior can be used to solve the next problem.
@@ -71,7 +71,7 @@ void DiscoverCone::resetGoal() {
 StrategyFn::RESULT_T DiscoverCone::tick() {
 	geometry_msgs::Twist		cmd_vel;		// For sending movement commands to the robot.
 	RESULT_T 					result = FATAL;	// Assume fatality in the algorithm.
-	std::ostringstream 				ss;				// For sending informations messages.
+	std::ostringstream 			ss;				// For sending informations messages.
 
 	if (StrategyFn::currentGoalName() != goalName()) {
 		// This is not a problem the behavior can solve.
@@ -83,7 +83,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		return RUNNING;
 	}
 
-	if (count_Odometry_msgs_received_ <= 0) {
+	if (count_odometry_msgs_received_ <= 0) {
 		// Wait until Odometry messages are received.
 		return RUNNING;
 	}
@@ -117,13 +117,13 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	// have completed at least one 360 degree rotation.
 	tf::Quaternion previous_tf_quat;
 	tf::Quaternion current_tf_quat;
-	double originalYaw = 0.0;
-	double currentYaw = 0.0;
+	double original_yaw = 0.0;
+	double current_yaw = 0.0;
 
 	switch (state_) {
 	case CAPTURE_ODOMETRY:
-		starting_odometry_msg_ = last_Odometry_msg_;
-		previous_pose_ = last_Odometry_msg_.pose.pose.orientation;
+		starting_odometry_msg_ = last_odometry_msg_;
+		previous_pose_ = last_odometry_msg_.pose.pose.orientation;
 		starting_yaw_ = tf::getYaw(starting_odometry_msg_.pose.pose.orientation);
 		total_rotated_yaw_ = 0;
 		state_ = ROTATING_TO_DISCOVER;	// We have a starting orientation, go to the begin-rotation strategy.
@@ -135,18 +135,18 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		// No cone yet discovered (it would have been handled above), so rotate a bit if not already
 		// completed a full circle.
 		tf::quaternionMsgToTF(previous_pose_, previous_tf_quat);
-		tf::quaternionMsgToTF(last_Odometry_msg_.pose.pose.orientation, current_tf_quat);
-		originalYaw = tf::getYaw(starting_odometry_msg_.pose.pose.orientation);
-		currentYaw = tf::getYaw(last_Odometry_msg_.pose.pose.orientation);
-		total_rotated_yaw_ += abs(previous_tf_quat.angleShortestPath(current_tf_quat));
-		previous_pose_ = last_Odometry_msg_.pose.pose.orientation;
+		tf::quaternionMsgToTF(last_odometry_msg_.pose.pose.orientation, current_tf_quat);
+		original_yaw = tf::getYaw(starting_odometry_msg_.pose.pose.orientation);
+		current_yaw = tf::getYaw(last_odometry_msg_.pose.pose.orientation);
+		total_rotated_yaw_ = total_rotated_yaw_ + fabs(previous_tf_quat.angleShortestPath(current_tf_quat));
+		previous_pose_ = last_odometry_msg_.pose.pose.orientation;
 
 		cmd_vel.linear.x = 0;
 		cmd_vel.angular.z = 0.4; //TODO ### Make configurable.
 
 		ss << "Rotating";
-		ss << ", originalYaw (deg): " << std::setprecision(5) << angles::to_degrees(originalYaw);
-		ss << ", currentYaw (deg): " << std::setprecision(5) << angles::to_degrees(currentYaw);
+		ss << ", original_yaw (deg): " << std::setprecision(5) << angles::to_degrees(original_yaw);
+		ss << ", current_yaw (deg): " << std::setprecision(5) << angles::to_degrees(current_yaw);
 		ss << ", total_rotated_yaw_ (deg): " << angles::to_degrees(total_rotated_yaw_);
 
 		if (total_rotated_yaw_ > (2 * M_PI)) {

@@ -89,8 +89,8 @@ private:
 	void resetGoal();
 
 	// Process one Odometry topic message;
-	long int count_Odometry_msgs_received_;
-	nav_msgs::Odometry last_Odometry_msg_;
+	long int count_odometry_msgs_received_;
+	nav_msgs::Odometry last_odometry_msg_;
 	void odometryCb(const nav_msgs::OdometryConstPtr& msg);
 
 	// Singleton pattern.

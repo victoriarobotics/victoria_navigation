@@ -41,6 +41,7 @@ protected:
 	static std::vector<GOAL_T> g_goal_stack_;		// Stack of goals to be solved.
 	static std::vector<GPS_POINT> g_point_stack_;	// Stack of goal GPS points, related to g_goal_stack.
 	static const std::string G_EMPTY_STRING_;		// Singleton empty string.
+	static const std::string G_NO_GOAL_NAME_;		// Singleton string for name of non-existing goal.
 	static RESULT_T g_last_goal_result_;			// Last result of current goal tick().
 
 	// ROS node handle.
@@ -75,7 +76,7 @@ protected:
 
 public:
 	static const std::string& currentGoalName() {
-		if (g_goal_stack_.empty()) return G_EMPTY_STRING_;
+		if (g_goal_stack_.empty()) return G_NO_GOAL_NAME_;
 		else return g_goal_stack_.back().goal_name;
 	}
 
