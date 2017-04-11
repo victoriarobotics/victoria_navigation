@@ -22,8 +22,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef __DISCOVER_CONE
-#define __DISCOVER_CONE
+#ifndef __VICTORIA_NAVIGATION_DISCOVER_CONE
+#define __VICTORIA_NAVIGATION_DISCOVER_CONE
 
 #include <ros/ros.h>
 #include <nav_msgs/Odometry.h>
@@ -34,81 +34,97 @@
 #include "victoria_perception/ObjectDetector.h"
 #include "victoria_navigation/strategy_fn.h"
 
+// A behavior that attempts to discover a RoboMagellan cone in the camera.
+//
+// The behavior depends on a few other components and parameters..
+//		* "cone_detector_topic_name" is a topic listened to for an indication if a RoboMagellan cone is detected.
+//		* "cmd_vel_topic_name" defines a topic to be used for moving the robot. Messages will be published
+//		  to that topic. The robot will end up in a stopped state at the end of this behavior.
+//		* "odometry_topic_name" defines a topic the MIGHT be listened to in order to determine the current
+//		  heading. See the discussion of "imu_topic_name" above.
+//
+// The behavior works as follows:
+//	* Wait until messages are received from the cone detector and Odometry.
+//  * If the cone is seen, indicate SUCCESS and stop the robot.
+//	* The first time this behavior is attempted, capture the current Odometry. This will be used
+//	  to detect when a complete revolution has been made.
+//	* If the robot hasn't yet made a complete revolution, rotate a bit.
+//
+// POSSIBLE IMPROVEMENTS:
+//	* Find all cones in a complete rotation and choose the best.
+//	* Choose the cone that is closest to the expected heading.
+
 class DiscoverCone : public StrategyFn {
 private:
-	typedef enum {
-		kCAPTURE_ODOMETRY,
-		kROTATING_TO_DISCOVER
-	} STATE;
-
-	// ROS node handle.
-	ros::NodeHandle nh_;
+	enum STATE {
+		CAPTURE_ODOMETRY,		// Capture the current Odometry.
+		ROTATING_TO_DISCOVER	// Rotate until a RoboMagellan cone is discovered.
+	};
 
 	// Parameters.
-	string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
-	string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
-	bool do_debug_strategy_;			// Emit info traces to help debug code.
-	string odometry_topic_name_;		// Topic name containing Odometry message.
+	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
+	std::string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
+	std::string odometry_topic_name_;		// Topic name containing Odometry message.
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
-	ros::Publisher current_strategy_pub_;
-	ros::Publisher strategy_status_publisher_;
 
 	// Subscribers.
 	ros::Subscriber	cone_detector_sub_;
 	ros::Subscriber odometry_sub_;
 
 	// Algorithm variables.
-	string last_reported_strategy_;
-	bool odometry_capturered_;					// Odometry message has been captured.
 	geometry_msgs::Quaternion previous_pose_;	// Pose from last Odometry message.
-	nav_msgs::Odometry starting_Odometry_msg_;	// Odometry mesage at start of rotation strategy.
+	nav_msgs::Odometry starting_odometry_msg_;	// Odometry mesage at start of rotation strategy.
 	double starting_yaw_;						// Starting yaw.
 	double total_rotated_yaw_;					// Integration of rotational yaw since start.
 	STATE state_;
 	
 	// Process one ConeDetector topic message.
-	long int count_ObjectDetector_msgs_received_;
-	victoria_perception::ObjectDetector last_ObjectDetector_msg_;
+	long int count_object_detector_msgs_received_;
+	victoria_perception::ObjectDetector last_object_detector_msg_;
 	void coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg);
 
 	// Reset goal. After this, someone must request the goal again and it will start over.
 	void resetGoal();
-
-	// Normalize an Euler angle into [0..360].
-	double normalizeEuler(double yaw);
 
 	// Process one Odometry topic message;
 	long int count_Odometry_msgs_received_;
 	nav_msgs::Odometry last_Odometry_msg_;
 	void odometryCb(const nav_msgs::OdometryConstPtr& msg);
 
-	// Publish current strategy (if changed).
-	void publishCurrentStragety(string strategy);
-
 	// Singleton pattern.
 	DiscoverCone();
-	DiscoverCone(DiscoverCone const&) {};
-	DiscoverCone& operator=(DiscoverCone const&) {};
+	DiscoverCone(DiscoverCone const&) {}
+	DiscoverCone& operator=(DiscoverCone const&) {}
 
 public:
 	RESULT_T tick();
 
-	string goalRequestParam() { return "/strategy/need_to_discover_cone"; }
+	const std::string& goalName() {
+		static std::string need_to_discover_cone = "/strategy/need_to_discover_cone";
+		return need_to_discover_cone;
+	}
 
-	string name() { return string("DiscoverCone"); };
+	const std::string& name() { 
+		static std::string name = "DiscoverCone";
+		return name;
+	}
 
 	static DiscoverCone& singleton();
 
-	string stateName(STATE state) {
+	const std::string& stateName(STATE state) {
+		static const std::string capture_odometry = "CAPTURE_ODOMETRY";
+		static const std::string rotating_to_discover = "ROTATING_TO_DISCOVER";
+		static const std::string unknown = "!!UNNOWN!!";
+
 		switch (state) {
-			case kCAPTURE_ODOMETRY:					return "kCAPTURE_ODOMETRY";
-			case kROTATING_TO_DISCOVER:				return "kROTATING_TO_DISCOVER";
-			default:								return "!!UNKNOWN!!";
+			case CAPTURE_ODOMETRY:					return capture_odometry;
+			case ROTATING_TO_DISCOVER:				return rotating_to_discover;
+			default:								return unknown;
 		}
 	}
 
 };
 
-#endif
+#endif // __VICTORIA_NAVIGATION_DISCOVER_CONE
