@@ -22,8 +22,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef __MOVE_TO_CONE
-#define __MOVE_TO_CONE
+#ifndef __VICTORIA_NAVIGATION_MOVE_TO_CONE
+#define __VICTORIA_NAVIGATION_MOVE_TO_CONE
 
 #include <ros/ros.h>
 #include <string>
@@ -31,66 +31,82 @@
 #include "victoria_perception/ObjectDetector.h"
 #include "victoria_navigation/strategy_fn.h"
 
+// A behavior that attempts to move to a RoboMagellan cone.
+//
+// The behavior depends on a few other components and parameters..
+//		* "cone_detector_topic_name" is a topic listened to for an indication if a RoboMagellan cone is detected.
+//		* "cmd_vel_topic_name" defines a topic to be used for moving the robot. Messages will be published
+//		  to that topic. The robot will end up in a stopped state at the end of this behavior.
+//
+// The behavior works as follows:
+//	* Wait until messages are received from the cone detector.
+//  * If the cone is not seen, indicate FAILURE and stop the robot.
+//	* If the cone is not more or less dead ahead, rotate a bit so that it is more centered.
+//	* [TEMPORARY] if the cone is "very close", stop the robot and indicate success.
+//	* [MISSING] If the robot is touching the cone, stop the robot and indicate success.
+//	* Else move the robot forward a bit.
+
 class MoveToCone : public StrategyFn {
 private:
-	typedef enum {
-		kMOVING_TO_CENTERING_POSITION,
-		kMOVING_TO_TOUCH
-	} STATE;
-
-	// ROS node handle.
-	ros::NodeHandle nh_;
+	enum STATE {
+		kMOVING_TO_CENTERING_POSITION,	// Rotate so the cone is more or less dead center ahead.
+		kMOVING_TO_TOUCH				// Move forward to touch the cone.
+	};
 
 	// Parameters.
-	string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
-	string cone_detector_topic_name_;	// Topic name containing cone_detector message
-	bool do_debug_strategy_;			// Emit info traces to help debug code.
+	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
+	std::string cone_detector_topic_name_;	// Topic name containing cone_detector message
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
-	ros::Publisher current_strategy_pub_;
-	ros::Publisher strategy_status_publisher_;
 
 	// Subscribers.
 	ros::Subscriber	cone_detector_sub_;
 
 	// Algorithm variables.
-	string last_reported_strategy_;
 	STATE state_;
+	int sequential_detection_failures_;
 	
 	// Process one cone detector topic message.
-	long int object_detections_received_;
+	long int count_ObjectDetector_msgs_received_;
 	victoria_perception::ObjectDetector last_object_detected_;
 	void coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg);
 
 	// Reset goal. After this, someone must request the goal again and it will start over.
 	void resetGoal();
 
-	// Publish current strategy (if changed).
-	void publishCurrentStragety(string strategy);
-
 	// Singleton pattern.
 	MoveToCone();
-	MoveToCone(MoveToCone const&) {};
-	MoveToCone& operator=(MoveToCone const&) {};
+	MoveToCone(MoveToCone const&) {}
+	MoveToCone& operator=(MoveToCone const&) {}
 
 public:
 	RESULT_T tick();
 
-	string goalRequestParam() { return "/strategy/need_to_move_cone"; }
+	const std::string& goalName() {
+		static const std::string goal_name = "/strategy/need_to_move_cone";
+		return goal_name;
+	}
 
-	string name() { return string("MoveToCone"); };
+	const std::string& name() {
+		static const std::string name = "MoveToCone";
+		return name;
+	}
 
 	static MoveToCone& singleton();
 
-	string stateName(STATE state) {
+	const std::string& stateName(STATE state) {
+		static const std::string moving_to_centering_position = "kMOVING_TO_CENTERING_POSITION";
+		static const std::string moving_to_touch = "kMOVING_TO_TOUCH";
+		static const std::string unknown = "!!UNKNOWN!!";
+
 		switch (state) {
-			case kMOVING_TO_CENTERING_POSITION:		return "kMOVING_TO_CENTERING_POSITION";
-			case kMOVING_TO_TOUCH:					return "kMOVING_TO_TOUCH";
-			default:								return "!!UNKNOWN!!";
+			case kMOVING_TO_CENTERING_POSITION:		return moving_to_centering_position;
+			case kMOVING_TO_TOUCH:					return moving_to_touch;
+			default:								return unknown;
 		}
 	}
 
 };
 
-#endif
+#endif  // __VICTORIA_NAVIGATION_MOVE_TO_CONE
