@@ -8,7 +8,7 @@
 	<arg name="cone_detector_topic_name" default="/cone_detector" doc="cone_detector topic name" />
 	<arg name="do_debug_strategy" default="true" doc="Enable info traces related to strategy code" />
 	<arg name="fix_topic_name" default="/fix" doc="fix topic name" />
-	<arg name="gps_close_distance_meters" default="4.0" doc="How close to get to a point using GPS to be considered 'close enough'" />
+	<arg name="gps_close_distance_meters" default="2.0" doc="How close to get to a point using GPS to be considered 'close enough'" />
 	<arg name="imu_topic_name" default="/imu" doc="IMU topic name" />
 	<arg name="linear_move_meters_per_sec" default="0.3" doc="Rate to move forward in meters/second" />
 	<arg name="magnetic_declination" default="13.42" doc="Magnetic declination adjustment for IMU reading" />

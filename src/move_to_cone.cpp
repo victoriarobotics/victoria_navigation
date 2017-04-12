@@ -34,7 +34,7 @@
 MoveToCone::MoveToCone() :
 	count_ObjectDetector_msgs_received_(0),
 	sequential_detection_failures_(0),
-	state_(kMOVING_TO_CENTERING_POSITION)
+	state_(MOVE_START)
 {
 	assert(ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_));
 	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
@@ -55,7 +55,7 @@ void MoveToCone::coneDetectorCb(const victoria_perception::ObjectDetectorConstPt
 
 // Reset global state so this behavior can be used to solve the next problem.
 void MoveToCone::resetGoal() {
-	state_ = kMOVING_TO_CENTERING_POSITION;
+	state_ = MOVE_START;
 }
 
 StrategyFn::RESULT_T MoveToCone::tick() {
@@ -73,9 +73,18 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 		return RUNNING;
 	}
 
+	if (state_ == MOVE_START) {
+		time_last_saw_cone = ros::Time::now();
+		state_ = MOVING_TO_CENTERING_POSITION;
+		return RUNNING;
+	}
+// FAILED, lost object detection. time_last_saw_cone: 0.000000000, now: 1491949414.455211667, duration_since_last_saw_cone: 1491949414.455211667
+
 	if (!last_object_detected_.object_detected) {
 		// Failure, lost sight of the cone.
-		if (sequential_detection_failures_++ > 30) {
+		ros::Time now = ros::Time::now();
+		ros::Duration duration_since_last_saw_cone = now - time_last_saw_cone;
+		if (duration_since_last_saw_cone.toSec() > 5) {
 			resetGoal();
 
 			cmd_vel.linear.x = 0;	// Stop motion.
@@ -83,17 +92,22 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			cmd_vel_pub_.publish(cmd_vel);
 
 			// Publish information.
-			ss << "FAILED, no object detected";
+			ss << "FAILED, lost object detection. time_last_saw_cone: " << time_last_saw_cone;
+			ss << ", now: " << now;
+			ss << ", duration_since_last_saw_cone: " << duration_since_last_saw_cone;
 			publishStrategyProgress("MoveToCone::tick", ss.str());
 
 			// Standard way to indicate failure.
 			popGoal();
 			return setGoalResult(FAILED); // No object found.
 		} else {
-			// Just ignore object detection failure to see if it's a fluke.
+			// Just ignore object detection failure for a while to see if it's a fluke.
+			// Note we don't stop motor here. We rely on the motor controller to time out.
+			return RUNNING;
 		}
 	} else {
 		sequential_detection_failures_ = 0;
+		time_last_saw_cone = ros::Time::now();
 	}
 
 	int image_width = 0;
@@ -101,7 +115,13 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 	long threshold_area = 0;
 
 	switch (state_) {
-	case kMOVING_TO_CENTERING_POSITION:
+	case MOVE_START:
+		time_last_saw_cone = ros::Time::now();
+		state_ = MOVING_TO_CENTERING_POSITION;
+		result = RUNNING;
+		break;
+
+	case MOVING_TO_CENTERING_POSITION:
 		threshold_area = (last_object_detected_.image_height * last_object_detected_.image_width / 2);
 		if (last_object_detected_.object_area > threshold_area) {
 			//### Fake test to stop when close.
@@ -115,7 +135,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			publishStrategyProgress("MoveToCone::tick", ss.str());
 			popGoal();
 			return setGoalResult(SUCCESS);
-		}
+		} 
 	
 		image_width = last_object_detected_.image_width;
 		object_x = last_object_detected_.object_x;
@@ -128,18 +148,25 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			ss << ", area: " << last_object_detected_.object_area;
 		} else {
 			// Turn towards cone.
-			cmd_vel.linear.x = 0.2; //### Arbitrary.
-			cmd_vel.angular.z = ((image_width / 2.0) - last_object_detected_.object_x) / last_object_detected_.image_width;
-			cmd_vel_pub_.publish(cmd_vel);
-			ss << "Turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
-			ss << ", area: " << last_object_detected_.object_area;
+			if (last_object_detected_.image_width > 0) {
+				cmd_vel.linear.x = 0.2; //### Arbitrary.
+				cmd_vel.angular.z = ((image_width / 2.0) - last_object_detected_.object_x) / last_object_detected_.image_width;
+				cmd_vel_pub_.publish(cmd_vel);
+				ss << "Turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
+				ss << ", area: " << last_object_detected_.object_area;
+			} else {
+				cmd_vel.linear.x = 0.0;
+				cmd_vel.angular.z = 0.0;
+				cmd_vel_pub_.publish(cmd_vel);
+				ss << "FAULT! image.width <= 0, stoppiong";
+			}			
 		}
 
 		result = RUNNING;
 		break;
 
-	case kMOVING_TO_TOUCH:
-		ss << "FATAL: Unimplemented state kMOVING_TO_TOUCH";
+	case MOVING_TO_TOUCH: //#####
+		ss << "FATAL: Unimplemented state MOVING_TO_TOUCH";
 		return setGoalResult(FATAL);
 
 	default:

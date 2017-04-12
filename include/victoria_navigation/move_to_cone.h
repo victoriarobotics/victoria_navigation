@@ -49,8 +49,9 @@
 class MoveToCone : public StrategyFn {
 private:
 	enum STATE {
-		kMOVING_TO_CENTERING_POSITION,	// Rotate so the cone is more or less dead center ahead.
-		kMOVING_TO_TOUCH				// Move forward to touch the cone.
+		MOVE_START,						// Start of goal
+		MOVING_TO_CENTERING_POSITION,	// Rotate so the cone is more or less dead center ahead.
+		MOVING_TO_TOUCH				// Move forward to touch the cone.
 	};
 
 	// Parameters.
@@ -66,6 +67,7 @@ private:
 	// Algorithm variables.
 	STATE state_;
 	int sequential_detection_failures_;
+	ros::Time time_last_saw_cone;
 	
 	// Process one cone detector topic message.
 	long int count_ObjectDetector_msgs_received_;
@@ -96,13 +98,15 @@ public:
 	static MoveToCone& singleton();
 
 	const std::string& stateName(STATE state) {
-		static const std::string moving_to_centering_position = "kMOVING_TO_CENTERING_POSITION";
-		static const std::string moving_to_touch = "kMOVING_TO_TOUCH";
+		static const std::string start = "START";
+		static const std::string moving_to_centering_position = "MOVING_TO_CENTERING_POSITION";
+		static const std::string moving_to_touch = "MOVING_TO_TOUCH";
 		static const std::string unknown = "!!UNKNOWN!!";
 
 		switch (state) {
-			case kMOVING_TO_CENTERING_POSITION:		return moving_to_centering_position;
-			case kMOVING_TO_TOUCH:					return moving_to_touch;
+			case MOVE_START:						return start;
+			case MOVING_TO_CENTERING_POSITION:		return moving_to_centering_position;
+			case MOVING_TO_TOUCH:					return moving_to_touch;
 			default:								return unknown;
 		}
 	}

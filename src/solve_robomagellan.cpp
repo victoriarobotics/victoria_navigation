@@ -83,14 +83,6 @@ void SolveRoboMagellan::fixCb(const sensor_msgs::NavSatFixConstPtr& msg) {
 	SolveRoboMagellan::g_count_Fix_msgs_received_++;
 }
 
-// Convert an Euler angle into a range of [0 .. 360).
-double SolveRoboMagellan::normalizeEuler(double yaw_degrees) {
-	double result = yaw_degrees;
-	while (result > 360) result -= 360;
-	while (result < 0) result += 360;
-	return result;
-}
-
 // Reset global state so this behavior can be used to solve the next problem.
 void SolveRoboMagellan::resetGoal() {
 	index_next_point_to_seek_ = 0;
@@ -100,16 +92,18 @@ void SolveRoboMagellan::resetGoal() {
 void SolveRoboMagellan::createGpsPointSet(std::string waypoint_yaml_path) {
 	while (g_count_Fix_msgs_received_ <= 0) { ros::spinOnce(); }
 
+	ROS_INFO("[SolveRoboMagellan::createGpsPointSet] Robot is located at latitude: %11.7f, longitude: %11.7f", g_last_Fix_msg_.latitude, g_last_Fix_msg_.longitude);
+
 	int point_number = 0;
 	std::vector<GPS_POINT> gps_points;				// Ordered list of waypoints to traverse.
 	YAML::Node waypoints = YAML::LoadFile(waypoint_yaml_path);
 	sensor_msgs::NavSatFix previous_point = g_first_Fix_msg_;  // Implied starting point is the current GPS fix.
 
     if (waypoints["gps_points"].Type() != YAML::NodeType::Sequence) {
-        ROS_ERROR("[robo_magellan_node] Unable to load yaml file: %s", waypoint_yaml_path.c_str());
+        ROS_ERROR("[SolveRoboMagellan::createGpsPointSet] Unable to load yaml file: %s", waypoint_yaml_path.c_str());
         return;
     } else {
-        ROS_INFO("[robo_magellan_node] Number of GPS points in the set: %ld", waypoints["gps_points"].size());
+        ROS_INFO("[SolveRoboMagellan::createGpsPointSet Number of GPS points in the set: %ld", waypoints["gps_points"].size());
     }
 
 	for (YAML::const_iterator yamlPoint = waypoints["gps_points"].begin(); yamlPoint != waypoints["gps_points"].end(); yamlPoint++) {
@@ -123,23 +117,23 @@ void SolveRoboMagellan::createGpsPointSet(std::string waypoint_yaml_path) {
 		sensor_msgs::NavSatFix yaml_point_as_fix;
 		yaml_point_as_fix.latitude = gps_point.latitude;
 		yaml_point_as_fix.longitude = gps_point.longitude;
-		double point_bearing_gps_degrees = bearing(previous_point, yaml_point_as_fix);
+		double point_bearing_gps = bearing(previous_point, yaml_point_as_fix);
 		double point_distance = distance(previous_point, yaml_point_as_fix);
-		double goal_yaw_degrees = normalizeEuler(90 - point_bearing_gps_degrees);;
+		double goal_yaw = angles::normalize_angle((M_PI / 2.0) - point_bearing_gps);
 
-		gps_point.bearing = goal_yaw_degrees;
-		gps_point.x = point_distance * cos(radians(goal_yaw_degrees));
-		gps_point.y = point_distance * sin(radians(goal_yaw_degrees));
+		gps_point.bearing = goal_yaw;
+		gps_point.x = point_distance * cos(goal_yaw);
+		gps_point.y = point_distance * sin(goal_yaw);
 		gps_point.distance = point_distance;
 		gps_points_.push_back(gps_point);
-		ROS_INFO("[SolveRoboMagellan::tick] point: %d"
+		ROS_INFO("[SSolveRoboMagellan::createGpsPointSet] point: %d"
 				  ", FROM lat: %11.7f"
 				  ", lon: %11.7f"
 				  ", TO lat: %11.7f"
 				  ", lon: %11.7f"
 				  ", distance: %7.4f"
-				  ", GPS heading: %7.4f"
-				  ", ROS heading: %7.4f"
+				  ", GPS heading/d: %7.4f"
+				  ", heading/d from prev: %7.4f"
 				  ", x: %11.7f"
 				  ", y: %11.7f"
 				  ", has_cone: %s",
@@ -149,8 +143,8 @@ void SolveRoboMagellan::createGpsPointSet(std::string waypoint_yaml_path) {
 				  gps_point.latitude,
 				  gps_point.longitude,
 				  gps_point.distance,
-				  point_bearing_gps_degrees,
-				  gps_point.bearing,
+				  angles::to_degrees(gps_point.bearing),
+				  angles::to_degrees(point_bearing_gps),
 				  gps_point.x,
 				  gps_point.y,
 				  gps_point.has_cone ? "TRUE" : "FALSE"
@@ -180,7 +174,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 		// Capture the initial state.
 		index_next_point_to_seek_ = 0;
 		pushGpsPoint(gps_points_[index_next_point_to_seek_]);
-		StrategyFn::pushGoal(SeekToGps::singleton().goalName(), "0");
+		StrategyFn::pushGoal(SeekToGps::singleton().goalName(), "");
 		state_ = MOVE_TO_GPS_POINT;
 		ss << "Setup complete, seeking to first point.";
 		result = RUNNING;
@@ -212,7 +206,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 
 			result = RUNNING;
 		} else {
-			ROS_ERROR("NO BACKTRACK STRATEGY FOR MOVE_TO_GPS_POINT. lastGoalResult: %d", lastGoalResult());
+			ROS_ERROR("[SolveRoboMagellan::tick] NO BACKTRACK STRATEGY FOR MOVE_TO_GPS_POINT. lastGoalResult: %d", lastGoalResult());
 
 	        annotator_request_.request.annotation = "LL;FFFFFF;NO BT for MOVE_TO_GPS_POINT";;
 	        coneDetectorAnnotatorService_.call(annotator_request_);
@@ -234,7 +228,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 	        coneDetectorAnnotatorService_.call(annotator_request_);
 			result = RUNNING;
 		} else {
-			ROS_ERROR("NO BACKTRACKING FOR FIND_CONE_IN_CAMERA");
+			ROS_ERROR("SolveRoboMagellan::tick] NO BACKTRACKING FOR FIND_CONE_IN_CAMERA");
 
 	        annotator_request_.request.annotation = "LL;FFFFFF;NO BT for FIND_CONE_IN_CAMERA";;
 	        coneDetectorAnnotatorService_.call(annotator_request_);
@@ -246,7 +240,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 	case MOVE_TO_CONE:
 		if (lastGoalResult() == SUCCESS) {
 			ROS_INFO("[SolveRoboMagellan::tick] succeeded in MoveToCone for point: %ld", index_next_point_to_seek_);
-			//##### StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
+			//##### StrategyFn::pushGoal(MoveFromCone::singleton().goalName(), "0");
 			state_ = MOVE_FROM_CONE;
 			ss << "MoveToCone successful for point: ";
 			ss << index_next_point_to_seek_;
@@ -256,7 +250,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 	        coneDetectorAnnotatorService_.call(annotator_request_);
 			result = RUNNING;
 		} else {
-			ROS_ERROR("NO BACKTRACKING FOR MOVE_TO_CONE");
+			ROS_ERROR("SolveRoboMagellan::tick] NO BACKTRACKING FOR MOVE_TO_CONE");
 
 	        annotator_request_.request.annotation = "LL;FFFFFF;NO BT for MOVE_TO_CONE";;
 	        coneDetectorAnnotatorService_.call(annotator_request_);
@@ -278,7 +272,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 	        coneDetectorAnnotatorService_.call(annotator_request_);
 			result = RUNNING;
 		} else {
-			ROS_ERROR("NO BACKTRACKING FOR MOVE_FROM_CONE");
+			ROS_ERROR("SolveRoboMagellan::tick] NO BACKTRACKING FOR MOVE_FROM_CONE");
 
 	        annotator_request_.request.annotation = "LL;FFFFFF;NO BT for MOVE_FROM_CONE";;
 	        coneDetectorAnnotatorService_.call(annotator_request_);
@@ -312,7 +306,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 		break;
 
 	default:
-		ROS_ERROR("INVALID state_ value");
+		ROS_ERROR("SolveRoboMagellan::tick] INVALID state_ value");
 
         annotator_request_.request.annotation = "LL;FFFFFF;FATAL invalid state value";;
         coneDetectorAnnotatorService_.call(annotator_request_);

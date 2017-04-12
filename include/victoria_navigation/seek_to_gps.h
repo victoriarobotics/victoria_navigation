@@ -26,6 +26,7 @@
 #define __VICTORIA_NAVIGATION_SEEK_TO_GPS
 
 #include <ros/ros.h>
+#include <angles/angles.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/NavSatFix.h>
@@ -92,9 +93,9 @@
 class SeekToGps : public StrategyFn {
 private:
 	enum STATE {
-		kSEEKING_POINT,			// Move robot towards the current GPS point.
-		kSETUP,					// Gather initial state before attempting to get close to the GPS point.
-		kROTATING_TO_HEADING
+		SEEKING_POINT,			// Move robot towards the current GPS point.
+		SETUP,					// Gather initial state before attempting to get close to the GPS point.
+		ROTATING_TO_HEADING
 	};
 
 	// Parameters.
@@ -120,65 +121,59 @@ private:
 	ros::Subscriber odometry_sub_;
 
 	// Algorithm variables.
-	double goal_yaw_degrees_;					// Goal heading.
+	double goal_yaw_;							// Goal heading.
 	geometry_msgs::Quaternion previous_pose_;	// Pose from last Odometry message.
-	nav_msgs::Odometry starting_Odometry_msg_;	// Odometry mesage at start of rotation strategy.
+	nav_msgs::Odometry starting_odometry_msg_;	// Odometry mesage at start of rotation strategy.
 	double starting_yaw_;						// Starting yaw.
 	double total_rotated_yaw_;					// Integration of rotational yaw since start.
 	STATE state_;								// State of state machine.
 	double goal_yaw_degrees_delta_threshold_;	// If delta is less than this, don't bother rotating.
 	
 	// Process one ConeDetector topic message.
-	long int count_ObjectDetector_msgs_received_;
-	victoria_perception::ObjectDetector last_ObjectDetector_msg_;
+	long int count_object_detector_msgs_received_;
+	victoria_perception::ObjectDetector last_object_detector_msg_;
 	void coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg);
 
 	// Process one Fix topic message.
-	long int count_Fix_msgs_received_;
-	sensor_msgs::NavSatFix last_Fix_msg_;
+	long int count_fix_msgs_received_;
+	sensor_msgs::NavSatFix last_fix_msg_;
 	void fixCb(const sensor_msgs::NavSatFixConstPtr& msg);
 
 	// Process one Imu message.
-	long int count_Imu_msgs_received_;
-	sensor_msgs::Imu last_Imu_msg_;
+	long int count_imu_msgs_received_;
+	sensor_msgs::Imu last_imu_msg_;
 	void imuCb(const sensor_msgs::ImuConstPtr& msg);
 	
 	// Process one Odometry topic message.
-	long int count_Odometry_msgs_received_;
-	nav_msgs::Odometry last_Odometry_msg_;
+	long int count_odometry_msgs_received_;
+	nav_msgs::Odometry last_odometry_msg_;
 	void odometryCb(const nav_msgs::OdometryConstPtr& msg);
 
 	// Reset global state so this behavior can be used to solve the next problem.
 	void resetGoal();
 
-	// Normalize an Euler angle into [0..360).
-	double normalizeEuler(double yaw);
-
-	static double degrees(double x) { return x * 180.0 / M_PI; }
-	static double radians(double x) { return x * M_PI / 180.0; }
- 
  	// Calculate bearing between two GPS points--accurate for distances for RoboMagellan.
 	double bearing(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
-	    double lat1 = radians(from.latitude);
-	    double lon1 = radians(from.longitude);
-	    double lat2 = radians(to.latitude);
-	    double lon2 = radians(to.longitude);
+	    double lat1 = angles::from_degrees(from.latitude);
+	    double lon1 = angles::from_degrees(from.longitude);
+	    double lat2 = angles::from_degrees(to.latitude);
+	    double lon2 = angles::from_degrees(to.longitude);
 	    double dLon = lon2 - lon1;
 	 
 	    double y = sin(dLon) * cos(lat2);
 	    double x = cos(lat1) * sin(lat2) - (sin(lat1) * cos(lat2) * cos(dLon));
 	 
-	    return degrees(atan2(y, x)); 
+	    return atan2(y, x);
 	}
  	
  	double odomBearing(double x1, double y1, double x2, double y2);
 	 
  	// Calculate distance between two GPS points--accurate for distances for RoboMagellan.
 	double distance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
-	    double lat1 = radians(from.latitude);
-	    double lon1 = radians(from.longitude);
-	    double lat2 = radians(to.latitude);
-	    double lon2 = radians(to.longitude);
+	    double lat1 = angles::from_degrees(from.latitude);
+	    double lon1 = angles::from_degrees(from.longitude);
+	    double lat2 = angles::from_degrees(to.latitude);
+	    double lon2 = angles::from_degrees(to.longitude);
 	    double dLat = lat2 - lat1;
 	    double dLon = lon2 - lon1;
 	 
@@ -211,15 +206,15 @@ public:
 	static SeekToGps& singleton();
 
 	const std::string& stateName(STATE state) {
-		static const std::string seeking_point = "kSEEKING_POINT";
-		static const std::string setup = "kSETUP";
-		static const std::string rotating_to_heading = "kROTATING_TO_HEADING";
+		static const std::string seeking_point = "SEEKING_POINT";
+		static const std::string setup = "SETUP";
+		static const std::string rotating_to_heading = "ROTATING_TO_HEADING";
 		static const std::string unknown = "!!UNKNOWN!!";
 
 		switch (state) {
-			case kSEEKING_POINT:					return seeking_point;
-			case kSETUP:							return setup;
-			case kROTATING_TO_HEADING:				return rotating_to_heading;
+			case SEEKING_POINT:					return seeking_point;
+			case SETUP:							return setup;
+			case ROTATING_TO_HEADING:				return rotating_to_heading;
 			default:								return unknown;
 		}
 	}

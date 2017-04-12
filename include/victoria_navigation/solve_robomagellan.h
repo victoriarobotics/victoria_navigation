@@ -26,6 +26,7 @@
 #define __VICTORIA_NAVIGATION_SOLVE_ROBOMAGELLAN
 
 #include <ros/ros.h>
+#include <angles/angles.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <string>
 #include <vector>
@@ -91,21 +92,18 @@ private:
 	static sensor_msgs::NavSatFix g_last_Fix_msg_;
 	static void fixCb(const sensor_msgs::NavSatFixConstPtr& msg);
 
-	static double degrees(double x) { return x * 180.0 / M_PI; }
-	static double radians(double x) { return x * M_PI / 180.0; }
-
- 	// Calculate bearing between two GPS points--accurate for distances for RoboMagellan.
+ 	// Calculate bearing between two GPS points--accurate for distances at RoboMagellan scale.
 	static double bearing(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
-	    double lat1 = radians(from.latitude);
-	    double lon1 = radians(from.longitude);
-	    double lat2 = radians(to.latitude);
-	    double lon2 = radians(to.longitude);
+	    double lat1 = angles::from_degrees(from.latitude);
+	    double lon1 = angles::from_degrees(from.longitude);
+	    double lat2 = angles::from_degrees(to.latitude);
+	    double lon2 = angles::from_degrees(to.longitude);
 	    double dLon = lon2 - lon1;
 	 
 	    double y = sin(dLon) * cos(lat2);
 	    double x = cos(lat1) * sin(lat2) - (sin(lat1) * cos(lat2) * cos(dLon));
 	 
-	    return degrees(atan2(y, x)); 
+	    return atan2(y, x);
 	}
 
 	static void createGpsPointSet(std::string waypoint_yaml_path);
@@ -114,10 +112,10 @@ private:
  	// Calculate distance between two GPS points--accurate for distances for RoboMagellan.
  	// See the 'haversine' formula in http://www.movable-type.co.uk/scripts/latlong.html
 	static double distance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
-	    double lat1 = radians(from.latitude);
-	    double lon1 = radians(from.longitude);
-	    double lat2 = radians(to.latitude);
-	    double lon2 = radians(to.longitude);
+	    double lat1 = angles::from_degrees(from.latitude);
+	    double lon1 = angles::from_degrees(from.longitude);
+	    double lat2 = angles::from_degrees(to.latitude);
+	    double lon2 = angles::from_degrees(to.longitude);
 	    double dLat = lat2 - lat1;
 	    double dLon = lon2 - lon1;
 	 
@@ -128,9 +126,6 @@ private:
 	    
 	    return 6371000.0 * c;
 	}
-
-	// Normalize an Euler angle into [0..360).
-	static double normalizeEuler(double yaw_degrees);
 
 	// Reset goal. After this, someone must request the goal again and it will start over.
 	void resetGoal();

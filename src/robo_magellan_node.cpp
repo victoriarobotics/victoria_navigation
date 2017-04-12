@@ -40,39 +40,57 @@
 
 const std::vector<SolveRoboMagellan::GPS_POINT>* gps_points;
 std::vector<std::string> service_goal_stack;
+std::vector<int> service_point_stack;
 ros::ServiceServer push_goal_service;
-
-void pushGoalName(std::string goal_name) {
-    ROS_INFO("[pushGoalName] goal_name: %s", goal_name.c_str());
-}
 
 bool pushGoalCb(victoria_navigation::PushGoal::Request &request,
                 victoria_navigation::PushGoal::Response &response) {
-    std::string goal_name = request.goal_name;
-    bool execute_now = request.execute_now;
-    if ((goal_name == "DiscoverCone") ||
-        (goal_name == "MoveToCone") ||
-        (goal_name == "SeekToGps") ||
-        (goal_name == "SolveRoboMagellan")) {
-        if (!request.execute_now) {
-            service_goal_stack.push_back(goal_name);
-            ROS_INFO_NAMED("robo_magellan_node", "[pushGoalCb] NO EXECUTE goal: %s", goal_name.c_str());
-        } else {
-            while (!service_goal_stack.empty()) {
-                std::string pushed_goal_name = service_goal_stack.back();
-                ROS_INFO_NAMED("robo_magellan_node", "[pushGoalCb] popping goal: %s", pushed_goal_name.c_str());
-                pushGoalName(pushed_goal_name);
-                service_goal_stack.pop_back();
+    if (request.push_move_to_cone) {
+        service_goal_stack.push_back(MoveToCone::singleton().goalName());
+    }
+
+    if (request.push_discover_cone) {
+        service_goal_stack.push_back(DiscoverCone::singleton().goalName());
+    }
+
+    if (request.push_seek_to_gps) {
+        service_goal_stack.push_back(SeekToGps::singleton().goalName());
+        service_point_stack.push_back(request.point_number_to_seek_to);
+        if ((service_point_stack.back() < 0) || (service_point_stack.back() >= gps_points->size())) {
+            std::ostringstream ss;
+            ss << "point_number_to_seek must be in [0.." << gps_points->size() << "]";
+            response.result = ss.str();
+            return false;
+        }
+    }
+
+    if (request.push_solve_robomagellan) {
+        service_goal_stack.push_back(SolveRoboMagellan::singleton().goalName());
+    }
+
+    if (request.execute_now) {
+        while (!service_goal_stack.empty()) {
+            std::string goal_name = service_goal_stack.back();
+            if (goal_name == SeekToGps::singleton().goalName()) {
+                StrategyFn::pushGoal(goal_name, "");
+                StrategyFn::pushGpsPoint(gps_points->at(service_point_stack.back()));
+                ROS_INFO_NAMED("robo_magellan_node", "[pushGoalCb] pushing goal: %s, point: %d", goal_name.c_str(), service_point_stack.back());
+                service_point_stack.pop_back();
+            } else {
+                StrategyFn::pushGoal(goal_name, "");
+                ROS_INFO_NAMED("robo_magellan_node", "[pushGoalCb] pushing goal: %s", goal_name.c_str());
             }
 
-            pushGoalName(goal_name);
+            service_goal_stack.pop_back();
         }
 
-        return true;
+        // The following clear() calls should be redundant, stacks should have been cleared above.
+        service_goal_stack.clear();
+        service_point_stack.clear();
     } else {
-        ROS_INFO_NAMED("robo_magellan_node", "goal_name must be one of DiscoverCone, MoveToCone, SeekToGps or SolveRoboMagellan");
-        response.result = "goal_name must be one of DiscoverCone, MoveToCone, SeekToGps or SolveRoboMagellan";
-        return false;
+        for (std::string goal_name : service_goal_stack) {
+            ROS_INFO_NAMED("robo_magellan_node", "[pushGoalCb] enqueuing goal: %s", goal_name.c_str());
+        }
     }
 
     return true;
@@ -95,7 +113,7 @@ bool pushGoalCb(victoria_navigation::PushGoal::Request &request,
 //      behaviors                   A list of possible behaviors.
 //      strategyStatusPublisher     A ROS publisher that reports internal strategy progress or information.
 //
-void doStrategy(std::vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPublisher, ros::ServiceClient annotatorService) {
+    void doStrategy(std::vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPublisher, ros::ServiceClient annotatorService) {
     actionlib_msgs::GoalStatus goalStatus;
     StrategyFn::RESULT_T result = StrategyFn::FATAL;
     ros::Rate rate(10); // Loop rate
@@ -140,8 +158,7 @@ void doStrategy(std::vector<StrategyFn*>& behaviors, ros::Publisher& strategySta
                 // The current problem was solved by the behavior.
                 if (StrategyFn::goalStackEmpty()) {
                     // There are no more problems to be solved, we're done.
-                    ROS_INFO("[robo_magellan_strategy_node] WOO HOO! SUCCESS!");
-                    return;
+                    continue;
                 } else {
                     // There are still other problems to be solved. Start again.
                     break;
