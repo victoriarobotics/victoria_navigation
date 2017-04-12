@@ -17,8 +17,9 @@ static:
     subscribe_to_updates: true
 
 obstacles_laser:
-    observation_sources: laser
+    observation_sources: laser depth_scan
     laser: {data_type: LaserScan, clearing: true, marking: true, topic: scan, inf_is_valid: true}
+    depth_scan: {data_type: LaserScan, clearing: true, marking: true, topic: scan_depth, inf_is_valid: true}
 
 inflation:
-    inflation_radius: 1.0
+    inflation_radius: 0.5
