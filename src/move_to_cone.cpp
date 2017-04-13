@@ -78,7 +78,6 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 		state_ = MOVING_TO_CENTERING_POSITION;
 		return RUNNING;
 	}
-// FAILED, lost object detection. time_last_saw_cone: 0.000000000, now: 1491949414.455211667, duration_since_last_saw_cone: 1491949414.455211667
 
 	if (!last_object_detected_.object_detected) {
 		// Failure, lost sight of the cone.

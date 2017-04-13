@@ -86,7 +86,7 @@ public:
 	RESULT_T tick();
 
 	const std::string& goalName() {
-		static const std::string goal_name = "/strategy/need_to_move_cone";
+		static const std::string goal_name = "/strategy/move_to_cone";
 		return goal_name;
 	}
 

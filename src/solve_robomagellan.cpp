@@ -55,6 +55,7 @@
 #include <unistd.h>
 
 #include "victoria_navigation/discover_cone.h"
+#include "victoria_navigation/move_from_cone.h"
 #include "victoria_navigation/move_to_cone.h"
 #include "victoria_navigation/seek_to_gps.h"
 #include "victoria_navigation/solve_robomagellan.h"
@@ -196,7 +197,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 		        annotator_request_.request.annotation = "LL;FFFFFF;At point, move on";
 		        coneDetectorAnnotatorService_.call(annotator_request_);
 			} else {
-				StrategyFn::pushGoal(DiscoverCone::singleton().goalName(), "0");
+				StrategyFn::pushGoal(DiscoverCone::singleton().goalName(), "");
 				state_ = FIND_CONE_IN_CAMERA;
 				ss << ", discovering cone.";
 
@@ -218,7 +219,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 	case FIND_CONE_IN_CAMERA:
 		if (lastGoalResult() == SUCCESS) {
 			ROS_INFO("[SolveRoboMagellan::tick] succeeded in DiscoverCone for point: %ld", index_next_point_to_seek_);
-			StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
+			StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "");
 			state_ = MOVE_TO_CONE;
 			ss << "DiscoverCone successful for point: ";
 			ss << index_next_point_to_seek_;
@@ -240,7 +241,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 	case MOVE_TO_CONE:
 		if (lastGoalResult() == SUCCESS) {
 			ROS_INFO("[SolveRoboMagellan::tick] succeeded in MoveToCone for point: %ld", index_next_point_to_seek_);
-			//##### StrategyFn::pushGoal(MoveFromCone::singleton().goalName(), "0");
+			StrategyFn::pushGoal(MoveFromCone::singleton().goalName(), "");
 			state_ = MOVE_FROM_CONE;
 			ss << "MoveToCone successful for point: ";
 			ss << index_next_point_to_seek_;
@@ -293,7 +294,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 			result = setGoalResult(SUCCESS);
 		} else {
 			pushGpsPoint(gps_points_[index_next_point_to_seek_]);
-			StrategyFn::pushGoal(SeekToGps::singleton().goalName(), "0");
+			StrategyFn::pushGoal(SeekToGps::singleton().goalName(), "");
 			state_ = MOVE_TO_GPS_POINT;
 			ss << "Advancing to point: ";
 			ss << index_next_point_to_seek_;

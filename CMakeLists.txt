@@ -65,6 +65,7 @@ include_directories(
 add_executable(robo_magellan_node
 	src/robo_magellan_node.cpp
 	src/discover_cone.cpp
+  src/move_from_cone.cpp
 	src/move_to_cone.cpp
 	src/seek_to_gps.cpp
 	src/solve_robomagellan.cpp

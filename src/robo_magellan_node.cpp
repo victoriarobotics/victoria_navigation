@@ -28,6 +28,7 @@
 #include <actionlib_msgs/GoalStatus.h>
 
 #include "victoria_navigation/discover_cone.h"
+#include "victoria_navigation/move_from_cone.h"
 #include "victoria_navigation/move_to_cone.h"
 #include "victoria_navigation/PushGoal.h"
 #include "victoria_navigation/seek_to_gps.h"
@@ -45,6 +46,10 @@ ros::ServiceServer push_goal_service;
 
 bool pushGoalCb(victoria_navigation::PushGoal::Request &request,
                 victoria_navigation::PushGoal::Response &response) {
+    if (request.push_move_from_cone) {
+        service_goal_stack.push_back(MoveFromCone::singleton().goalName());
+    }
+
     if (request.push_move_to_cone) {
         service_goal_stack.push_back(MoveToCone::singleton().goalName());
     }
@@ -185,6 +190,7 @@ int main(int argc, char** argv) {
 
     // Add all possible behaviors to the list.
     behaviors.push_back(&DiscoverCone::singleton());
+    behaviors.push_back(&MoveFromCone::singleton());
     behaviors.push_back(&MoveToCone::singleton());
     behaviors.push_back(&SeekToGps::singleton());
     behaviors.push_back(&SolveRoboMagellan::singleton());
