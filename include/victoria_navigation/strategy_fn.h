@@ -123,6 +123,9 @@ public:
 		return result;
 	}
 
+	// Singleton constructor
+	static StrategyFn& singleton();
+
 	// Perform strategy.
 	virtual RESULT_T tick() = 0;
 

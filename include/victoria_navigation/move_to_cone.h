@@ -95,7 +95,7 @@ public:
 		return name;
 	}
 
-	static MoveToCone& singleton();
+	static StrategyFn& singleton();
 
 	const std::string& stateName(STATE state) {
 		static const std::string start = "START";

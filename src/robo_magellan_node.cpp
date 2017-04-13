@@ -189,15 +189,13 @@ int main(int argc, char** argv) {
     behaviors.push_back(&SeekToGps::singleton());
     behaviors.push_back(&SolveRoboMagellan::singleton());
 
-    gps_points = SolveRoboMagellan::singleton().getGpsPoints();
+    gps_points = ((SolveRoboMagellan&) SolveRoboMagellan::singleton()).getGpsPoints();
 
     ros::ServiceClient coneDetectorAnnotatorService = nh.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
 
     // Set the initial problem to be solved.
     //StrategyFn::pushGoal(SolveRoboMagellan::singleton().goalName(), "0");
 
-    //StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "0");
-   
     // Attempt to solve the problem.
     doStrategy(behaviors, strategyStatusPublisher, coneDetectorAnnotatorService);
 

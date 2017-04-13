@@ -178,7 +178,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 	return result;
 }
 
-MoveToCone& MoveToCone::singleton() {
+StrategyFn& MoveToCone::singleton() {
     static MoveToCone singleton_;
     return singleton_;
 }

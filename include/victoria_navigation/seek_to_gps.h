@@ -203,7 +203,7 @@ public:
 		return name;
 	}
 
-	static SeekToGps& singleton();
+	static StrategyFn& singleton();
 
 	const std::string& stateName(STATE state) {
 		static const std::string seeking_point = "SEEKING_POINT";

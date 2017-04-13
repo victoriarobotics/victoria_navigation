@@ -149,7 +149,7 @@ public:
 		return name;
 	};
 
-	static SolveRoboMagellan& singleton();
+	static StrategyFn& singleton();
 
 	const std::string& stateName(STATE state) {
 		static const std::string setup = "SETUP";

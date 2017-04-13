@@ -126,16 +126,16 @@ void SolveRoboMagellan::createGpsPointSet(std::string waypoint_yaml_path) {
 		gps_point.y = point_distance * sin(goal_yaw);
 		gps_point.distance = point_distance;
 		gps_points_.push_back(gps_point);
-		ROS_INFO("[SSolveRoboMagellan::createGpsPointSet] point: %d"
+		ROS_INFO("[SolveRoboMagellan::createGpsPointSet] point: %d"
 				  ", FROM lat: %11.7f"
 				  ", lon: %11.7f"
 				  ", TO lat: %11.7f"
 				  ", lon: %11.7f"
 				  ", distance: %7.4f"
-				  ", GPS heading/d: %7.4f"
+				  ", GPS heading/d from prev: %7.4f"
 				  ", heading/d from prev: %7.4f"
-				  ", x: %11.7f"
-				  ", y: %11.7f"
+				  ", x: %7.3f"
+				  ", y: %7.3f"
 				  ", has_cone: %s",
 				  point_number++,
 				  previous_point.latitude,
@@ -318,7 +318,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 	return result;
 }
 
-SolveRoboMagellan& SolveRoboMagellan::singleton() {
+StrategyFn& SolveRoboMagellan::singleton() {
     static SolveRoboMagellan singleton_;
     return singleton_;
 }

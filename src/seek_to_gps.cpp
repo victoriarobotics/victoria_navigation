@@ -304,7 +304,7 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 	return result;
 }
 
-SeekToGps& SeekToGps::singleton() {
+StrategyFn& SeekToGps::singleton() {
     static SeekToGps singleton_;
     return singleton_;
 }

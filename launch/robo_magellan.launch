@@ -3,6 +3,9 @@
 	<arg if="$(arg doDebug)" name="launchPrefix" value="xterm -e gdb -args" />
 	<arg unless="$(arg doDebug)" name="launchPrefix" value="" />
 
+	<arg name="debug_cone_detector" default="false" doc="true => log interesting debug data" />
+
+
 	<!-- START victoria_navigation parameters -->
 	<arg name="cmd_vel_topic_name" default="/cmd_vel" doc="cmd_vel topic name" />
 	<arg name="cone_detector_topic_name" default="/cone_detector" doc="cone_detector topic name" />
@@ -22,6 +25,7 @@
   	<node pkg="victoria_navigation" name="robo_magellan_node" type="robo_magellan_node" respawn="false" output="screen" launch-prefix="$(arg launchPrefix)" >
 	  	<param name="cmd_vel_topic_name" value="$(arg cmd_vel_topic_name)" />
 	  	<param name="cone_detector_topic_name" value="$(arg cone_detector_topic_name)" />
+	    <param name="debug_cone_detector" value="$(arg debug_cone_detector)" />
 	  	<param name="do_debug_strategy" value="$(arg do_debug_strategy)" />
 	  	<param name="fix_topic_name" value="$(arg fix_topic_name)" />
 	  	<param name="gps_close_distance_meters" value="$(arg gps_close_distance_meters)" />

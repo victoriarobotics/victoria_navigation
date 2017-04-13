@@ -171,7 +171,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	return result;
 }
 
-DiscoverCone& DiscoverCone::singleton() {
+StrategyFn& DiscoverCone::singleton() {
     static DiscoverCone singleton_;
     return singleton_;
 }

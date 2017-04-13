@@ -111,7 +111,7 @@ public:
 		return name;
 	}
 
-	static DiscoverCone& singleton();
+	static StrategyFn& singleton();
 
 	const std::string& stateName(STATE state) {
 		static const std::string capture_odometry = "CAPTURE_ODOMETRY";
