@@ -28,8 +28,9 @@
 #include <ros/ros.h>
 #include <string>
 
-#include "victoria_perception/ObjectDetector.h"
+#include "victoria_sensor_msgs/DistanceDisplacement1D.h"
 #include "victoria_navigation/strategy_fn.h"
+#include "victoria_perception/ObjectDetector.h"
 
 // A behavior that attempts to move to a RoboMagellan cone.
 //
@@ -55,16 +56,21 @@ private:
 	};
 
 	// Parameters.
-	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
-	std::string cone_detector_topic_name_;	// Topic name containing cone_detector message
+	std::string cmd_vel_topic_name_;					// Topic name containing cmd_vel message.
+	std::string cone_detector_topic_name_;				// Topic name containing cone_detector message.
+	std::string distance_displacement_1d_topic_name_;	// Topic containing DistanceDisplacement1D message.
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
 
 	// Subscribers.
 	ros::Subscriber	cone_detector_sub_;
+	ros::Subscriber distance_displacement_1d_topic_name_sub_;
 
 	// Algorithm variables.
+	bool bumper_hit_;					// Bumper hit detected.
+	int cone_area_for_bumper_hit_;		// If equate_size_to_bumper_hit_, then a cone area >= this is considered a bumper_hit_.
+	bool equate_size_to_bumper_hit_;	// True => if cone size >= cone_area_for_bumper_hit_ then it's equivalent to bumper_hit_.
 	STATE state_;
 	int sequential_detection_failures_;
 	ros::Time time_last_saw_cone;
@@ -73,6 +79,9 @@ private:
 	long int count_ObjectDetector_msgs_received_;
 	victoria_perception::ObjectDetector last_object_detected_;
 	void coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg);
+
+	// Process DistanceDisplacement1D topic message.
+	void distanceDisplacement1DCb(const victoria_sensor_msgs::DistanceDisplacement1DConstPtr& msg);
 
 	// Reset goal. After this, someone must request the goal again and it will start over.
 	void resetGoal();

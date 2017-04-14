@@ -37,14 +37,21 @@ MoveToCone::MoveToCone() :
 	state_(MOVE_START)
 {
 	assert(ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_));
+	assert(ros::param::get("~cone_area_for_bumper_hit", cone_area_for_bumper_hit_));
 	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
+	assert(ros::param::get("~distance_displacement_1d_topic_name", distance_displacement_1d_topic_name_));
+	assert(ros::param::get("~equate_size_to_bumper_hit", equate_size_to_bumper_hit_));
 	
 	cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_name_.c_str(), 1);
 
 	cone_detector_sub_ = nh_.subscribe(cone_detector_topic_name_, 1, &MoveToCone::coneDetectorCb, this);
+	distance_displacement_1d_topic_name_sub_ = nh_.subscribe(distance_displacement_1d_topic_name_, 1, &MoveToCone::distanceDisplacement1DCb, this);
 
 	ROS_INFO("[MoveToCone] PARAM cmd_vel_topic_name: %s", cmd_vel_topic_name_.c_str());
+	ROS_INFO("[MoveToCone] PARAM cone_area_for_bumper_hit: %d", cone_area_for_bumper_hit_);
 	ROS_INFO("[MoveToCone] PARAM cone_detector_topic_name: %s", cone_detector_topic_name_.c_str());
+	ROS_INFO("[MoveToCone] PARAM distance_displacement_1d_topic_name_: %s", distance_displacement_1d_topic_name_.c_str());
+	ROS_INFO("[MoveToCone] PARAM equate_size_to_bumper_hit: %s", equate_size_to_bumper_hit_ ? "TRUE" : "FALSE");
 }
 
 // Capture the lates ConeDetector information
@@ -53,15 +60,23 @@ void MoveToCone::coneDetectorCb(const victoria_perception::ObjectDetectorConstPt
 	count_ObjectDetector_msgs_received_++;
 }
 
+void MoveToCone::distanceDisplacement1DCb(const victoria_sensor_msgs::DistanceDisplacement1DConstPtr& msg) {
+	if (msg->displacement > ((msg->max_value + msg->min_value) / 2.0)) {
+		bumper_hit_ = true;
+	} else {
+		bumper_hit_ = false;
+	}
+}
+
 // Reset global state so this behavior can be used to solve the next problem.
 void MoveToCone::resetGoal() {
 	state_ = MOVE_START;
 }
 
 StrategyFn::RESULT_T MoveToCone::tick() {
-	geometry_msgs::Twist		cmd_vel;		// For sending movement commands to the robot.
-	RESULT_T 					result = FATAL;	// Assume fatality in the algorithm.
-	std::ostringstream 				ss;				// For sending informations messages.
+	geometry_msgs::Twist	cmd_vel;		// For sending movement commands to the robot.
+	RESULT_T 				result = FATAL;	// Assume fatality in the algorithm.
+	std::ostringstream 		ss;				// For sending informations messages.
 
 	if (StrategyFn::currentGoalName() != goalName()) {
 		// This is not a problem the behavior can solve.
@@ -111,7 +126,6 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 
 	int image_width = 0;
 	int object_x = 0;
-	long threshold_area = 0;
 
 	switch (state_) {
 	case MOVE_START:
@@ -121,16 +135,18 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 		break;
 
 	case MOVING_TO_CENTERING_POSITION:
-		threshold_area = (last_object_detected_.image_height * last_object_detected_.image_width / 2);
-		if (last_object_detected_.object_area > threshold_area) {
-			//### Fake test to stop when close.
+		if (equate_size_to_bumper_hit_) {
+			bumper_hit_ |= last_object_detected_.object_area > cone_area_for_bumper_hit_;
+		}
+
+		if (bumper_hit_) {
 			resetGoal();
 			cmd_vel.linear.x = 0;
 			cmd_vel.angular.z = 0;
 			cmd_vel_pub_.publish(cmd_vel);
 			ss << " SUCCESS Close to object, STOP";
 			ss << ", area: " << last_object_detected_.object_area;
-			ss << ", threshold_area: " << threshold_area;
+			ss << ", cone_area_for_bumper_hit: " << cone_area_for_bumper_hit_;
 			publishStrategyProgress("MoveToCone::tick", ss.str());
 			popGoal();
 			return setGoalResult(SUCCESS);

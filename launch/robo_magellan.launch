@@ -3,29 +3,35 @@
 	<arg if="$(arg doDebug)" name="launchPrefix" value="xterm -e gdb -args" />
 	<arg unless="$(arg doDebug)" name="launchPrefix" value="" />
 
-	<arg name="debug_cone_detector" default="false" doc="true => log interesting debug data" />
+	<arg name="debug_cone_detector" default="false" doc="true =&gt; log interesting debug data" />
 
 
 	<!-- START victoria_navigation parameters -->
 	<arg name="cmd_vel_topic_name" default="/cmd_vel" doc="cmd_vel topic name" />
+	<arg name="cone_area_for_bumper_hit" default="20000" doc="If equate_size_to_bumper_hit, then a cone area &gt;= this is considered a bumper_hit" />
 	<arg name="cone_detector_topic_name" default="/cone_detector" doc="cone_detector topic name" />
+	<arg name="distance_displacement_1d_topic_name" default="/distance_displacement_1d" doc = "Topic name for DistanceDisplacement1D message" />
 	<arg name="do_debug_strategy" default="true" doc="Enable info traces related to strategy code" />
+	<arg name="equate_size_to_bumper_hit" default="false" doc="True =&gt; cone size &gt;= xxx is equivalent to a bumper hit" />
 	<arg name="fix_topic_name" default="/fix" doc="fix topic name" />
 	<arg name="gps_close_distance_meters" default="2.0" doc="How close to get to a point using GPS to be considered 'close enough'" />
 	<arg name="imu_topic_name" default="/imu" doc="IMU topic name" />
 	<arg name="linear_move_meters_per_sec" default="0.3" doc="Rate to move forward in meters/second" />
 	<arg name="magnetic_declination" default="13.42" doc="Magnetic declination adjustment for IMU reading" />
 	<arg name="odometry_topic_name" default="/odom" doc="odometry topic name" />
-	<arg name="solve_using_odom" default="false" doc="true => compute distance using Odometry, not GPS" />
-	<arg name="use_imu" default="true" doc="true => use the IMU instead of Odometry as true robot heading" />
+	<arg name="solve_using_odom" default="false" doc="true =&gt; compute distance using Odometry, not GPS" />
+	<arg name="use_imu" default="true" doc="true =&gt; use the IMU instead of Odometry as true robot heading" />
 	<arg name="waypoint_yaml_path" default="$(find victoria_navigation)/config/wimble_patio_waypoints.yaml" doc="path to yaml file containing waypoints" />
 	<arg name="yaw_turn_radians_per_sec" default="0.4" doc="Rate to make yaw moves in radians per second" />
 	<!-- END victoria_navigation parameters -->
 	
   	<node pkg="victoria_navigation" name="robo_magellan_node" type="robo_magellan_node" respawn="false" output="screen" launch-prefix="$(arg launchPrefix)" >
 	  	<param name="cmd_vel_topic_name" value="$(arg cmd_vel_topic_name)" />
+	  	<param name="cone_area_for_bumper_hit" value="$(arg cone_area_for_bumper_hit)" />
 	  	<param name="cone_detector_topic_name" value="$(arg cone_detector_topic_name)" />
 	    <param name="debug_cone_detector" value="$(arg debug_cone_detector)" />
+	    <param name="distance_displacement_1d_topic_name" value="$(arg distance_displacement_1d_topic_name)" />
+	    <param name="equate_size_to_bumper_hit" value="$(arg equate_size_to_bumper_hit)" />
 	  	<param name="do_debug_strategy" value="$(arg do_debug_strategy)" />
 	  	<param name="fix_topic_name" value="$(arg fix_topic_name)" />
 	  	<param name="gps_close_distance_meters" value="$(arg gps_close_distance_meters)" />
