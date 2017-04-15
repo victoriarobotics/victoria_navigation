@@ -101,6 +101,9 @@ If a bumper hit is detected, the goal is achieved, the robot is commanded to sto
 
 ----
 ## MoveFromCone
+The problem solver attempts to back away from having touched the cone so that the robot can proceed on to the next waypoint with less likelihood of knocking over the cone.
+
+The first time the problem solver is invoked, it picks up the current time. Thereafter, the robot is commanded to move in reverse for one second with `cmd_vel.linear.x` set to -0.3 and `cmd_vel.angular.z` set to zero. At the end of one second, the robot is commanded to stop.
 
 ----
 ## StrategyFn
