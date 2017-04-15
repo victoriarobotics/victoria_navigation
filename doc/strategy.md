@@ -33,13 +33,26 @@ For example, for the **MoveToCone** goal, a problem solver might loose sight of 
 
 ----
 ## SolveRoboMagellan
-<to be done>
+The problem solver attempts to solve the whole RoboMagellan problem—traversing to a list of waypoints and ultimately touching the last cone.
+
+The singleton instance of the problem solver, during construction, parses the list of GPS waypoints provided in the YAML file pointed at by the **waypoint_yaml_path** parameter.
+
+The first time the problem solver is invoked to achieve the goal, it begins by waiting on **Fix** messages. When at least one message is received, the problem solver proceeds.
+
+The problem solver is a state machine that pushes subgoals to advance to the next waypoint in the series and, if that waypoint is supposed to have a cone at that location, it also attempts to touch the cone. So the problem solver iterates over each point in the waypoint list and for each point it sequentially:
+
+* Pushes the SeekToGps goal and also the point to be seeked.
+* If the waypoint is supposed to have a cone at the location:
+  * Push the DiscoverCone goal so that the cone detector for the robot can see the cone.
+  * Push the MoveToCone goal to touch the cone.
+  * Push the MoveFromCone to give room to manuever to the next waypoint.
+* If there is another point in the list, repeat the process for the next point. Otherwise, the goal is achieved and the problem solver indicates **success**.
 
 ----
 ## SeekToGps
 The problem solver attempts to move the robot near a GPS waypoint (see StrategyFn::**GPS_POINT**). The point used is that which is on top of the point stack (see StrategyFn::**pushGpsPoint**).
 
-Whenever the problem solver is invoked, it begins by waiting on **ConeDetector**, **Odometry**, **Fix** and **Imu** messages. When at least one of each of those messages is received, the problem solver proceeds.
+Whenever the problem solver is invoked to achieve the goal, it begins by waiting on **ConeDetector**, **Odometry**, **Fix** and **Imu** messages. When at least one of each of those messages is received, the problem solver proceeds.
 
 Each invocation of this problem solver tests whether the goal waypoint has an associated cone and, if so, whether the latest **ConeDetector** message indicates that it sees the cone. If so, the problem solver **succeeds** (achieves the goal).
 
