@@ -82,3 +82,21 @@ To use this service, place the cone so that a non-specular part of the cone is i
 There were 15617 pixels in the cluster and the new ranges are min_hue: 8, max_hue: 14, min_saturation: 195, max_saturation: 240, min_value: 226, max_value: 255
 ~~~
 These show you HSV range values that you can plug into the cone detector dynamic reconfigure window (above) as starting points for one of the filters, typically the a-filter. Also as an aid, a window will pop up entitled "KMEANS_annotated". You should see the cone in the center and all of the pixels that were passed by the HSV filter will be colored pure black. Again, this gives you a starting point for setting your real HSV values. You could call this helper several times, each time with the robot showing the cone from a different angle or in different lighting to get an idea of the needed HSV filter values.
+
+----
+# **Invoking a strategy to achieve a goal**
+Using **rqt** and the **Services / Service Caller** plugin, you can bring up a panel that allows you to inject one of the goals to be solved by the strategy module. It's the service **/robo_magellan_node/push_goal** and the panel looks like:
+
+![Push Goal service](/doc/robomagellan_push_goal.png)
+
+Each time you click on "Call", the goals which are set to **True** will be pushed onto the goal stack. If you also set the **execute_now** to **True**, after the goals are pushed the strategy module will atttempt to achieve them. You can push the same goal several times without execution if you leave **execute_now** set to **False**.  For instance, you can cause the robot to rotate a complete circle in place up to four times in a row if you push the **push_discover_cone** goal three times with **execute_now** set to **False** and then push it once more with **execute_now** set to **True**.
+
+If more than one goal is pushed at a time, they are pushed in the order show, top to bottom. For example, if you set to **True** both the "push_move_to_cone" and "push discover_cone" and also the "execute_now", then the MoveToCone goal will be pushed onto the goal stack first, then the "DiscoverCone" goal is pushed, then the strategy module is told to achieve those goals. The result is that the robot will spin around until it detects the cone in the camera then attempt to move and touch the cone.
+
+There is no way to clear out goals other than achieving all the goals or restarting the victoria_navigaton stack.
+
+If you select the **push_seek_to_gps** then you must have also set up the required YAML file with a list of GPS wayspoints. You should also select the zero-based index into that list of the point you want to seek to via the **point_number_to_seek_to** text field. If the number you select is out of range, or if some other erroneous condition is detected, you'll see an error message in the response panel.
+
+You can use this to repeatedly test a problem solver without invoking the whole RoboMagellan strategy.
+
+Importantly, **to actually run the complete contest code, set push_solve_robomagellan and execute_now to True and click the Call button**.
