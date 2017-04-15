@@ -63,7 +63,25 @@ If no corrected yaw command is needed, the robot is commanded to move forward by
 
 ----
 ## DiscoverCone
-<to be done>
+The problem solver attempts to see a cone in the camera and will rotate up to one complete circle in an attempt to do so.
+
+Whenever the problem solver is invoked, it begins by waiting on **ConeDetector** and **Odometry** messages. When at least one of each of those messages is received, the problem solver proceeds.
+
+Each invocation of this problem solver tests whether the latest **ConeDetector** message indicates that it sees the cone. If so, the problem solver **succeeds** (achieves the goal) and the robot is commanded to stop.
+
+Otherwise, the first time the problem solver is invoked for the goal, the current heading is picked up from the last **Odometry** message. Note that the actually heading isn't interesting, so there isn't a need to look at the IMU versus the odometry. The current heading by any means is good enough, as long as the problem solver can tell when a complete turn of 360 degrees has been made later.
+
+For each invocation of the problem solver, it tests to see:
+* Has the cone been seen yet?
+
+  If so, the goal is achieved and the problem solver **succeeds**.
+
+* Has the robot rotated 360 degrees from the beginning of this problem solver trying to achieve the goal?
+
+  If so, the goal is not achieved and the problem solver **fails**.
+
+Otherwise the robot is commanded to rotate with `cmd_vel.linear.x` set to zero and `cmd_vel.angular.z` set to 0.4.
+
 ----
 ## MoveToCone
 <to be done>
