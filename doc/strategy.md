@@ -84,7 +84,21 @@ Otherwise the robot is commanded to rotate with `cmd_vel.linear.x` set to zero a
 
 ----
 ## MoveToCone
-<to be done>
+The problem solver attempts to move close to and then touch a cone using information from the camera and the **ConeDetector** message.
+
+Whenever the problem solver is invoked, it begins by waiting on **ConeDetector** messages. When at least one message is received, the problem solver proceeds.
+
+The first time the problem solver is invoked for the goal, it picks up the current time as the last time a cone was detected. This will be used later.
+
+Each time the problem solver is invoked for the goal, it tests whether the cone is still being detected. If not, it will wait up to five seconds for cone detection to occur again. This is because the cone detector is a bit erratic and will report that no cone is detected in one or more frames and, with nothing else changing, it reports that the cone is detected again. Each time a cone is detected, the last time a cone was detected is updated, restarting the five second clock.
+
+The problem solver wants to move towards the cone, with the cone centered in the camera frame, until a bumper sensor says it touched the cone. The bumper hit is detected in one of two ways:
+
+* The topic named by the **distance_displacement_1d_topic_name** parameter publishes an indication that the physical bumper was displaced enough.
+* If the **equate_size_to_bumper_hit** parameter is true and the cone detector reports that the area of the detected cone in the frame is the parameter value **cone_area_for_bumper_hit** square pixels or more, a bumper hit is assumed. This was added so other robots could be tested without having a bumper sensor.
+
+If a bumper hit is detected, the goal is achieved, the robot is commanded to stop and the problem solver indicates **success**. Otherise the robot is commanded to move towards the cone, making a centering adjustment along the way. The `cmd_vel.linear.x` value is set to 0.2 and the `cmd_vel.angular.z` value is set to `((image_width / 2.0) - last_object_detected_.object_x) / last_object_detected_.image_width` which is an attempt to steer harder when the cone is more off center, and steer easier when the cone is near the center of the frame.
+
 ----
 ## MoveFromCone
 
