@@ -68,3 +68,17 @@ Similarly the "B HSV" window shows the output from applying the six b-prefixed H
 The "MERGED_HSV" window shows the resulting "OR" of the "A HSV" and "B HSV" windows.
 
 Finally, the "SMEARED" output shows the results of applying the erode/dilate filters, the polygon formation, the canny filter to gather pixels into lines, turning the polygons into convex hulls over candidate cone areas and using the gausian blur filter. The only interesting detail in all of that is it shows the additional effet of the **poly_epsilon_** and **erode_kernel_size_** sliders. The other computations are (presently) hard coded. This is the important window. What you want to see here is an outline of a cone which is smaller at the top than the bottom and of the appropriate size. It doesn't hurt to have other artifacts in the window unless those artifacts end up looking like cones. The cone detector will reject polygons which are not of the right size and aspect ratio. Having lots of artifacts might slow down the detector, but having a brittle filter that doesn't work when the shading changes or the color temperature of the sun changes, a brittle filter that works on the first cone but not the last won't be valuable.
+
+When you uncheck the **debug\_** option, the debug windows remain, showing the last state. You can close the windows as you like and they will be re-opened if you enable **debug\_** again.
+
+----
+# **The KMEANS helper**
+In **rqt** if you use the **Services / Service Caller** plugin, you can invoke several useful services specific to Victoria. One of those is the service name **/cone_detector/calibrate_cone_detector**. You should see something like:
+
+![Calibrate Cone Detection](/doc/calibrate_cone_detection.png)
+
+To use this service, place the cone so that a non-specular part of the cone is in the exact center of the image and then click on the "Call" button. In the **rosout** window, you'll see something like:
+~~~
+There were 15617 pixels in the cluster and the new ranges are min_hue: 8, max_hue: 14, min_saturation: 195, max_saturation: 240, min_value: 226, max_value: 255
+~~~
+These show you HSV range values that you can plug into the cone detector dynamic reconfigure window (above) as starting points for one of the filters, typically the a-filter. Also as an aid, a window will pop up entitled "KMEANS_annotated". You should see the cone in the center and all of the pixels that were passed by the HSV filter will be colored pure black. Again, this gives you a starting point for setting your real HSV values. You could call this helper several times, each time with the robot showing the cone from a different angle or in different lighting to get an idea of the needed HSV filter values.
