@@ -20,10 +20,10 @@ public:
 		double latitude;
 		double longitude;
 		bool has_cone;
-		double x;			// Position relative to start.
-		double y;			// Position relative to start.
-		double bearing;		// Position bearing from start
-		double distance;	// Distance to point.
+		double x;			// Position relative to start in the Odom frame.
+		double y;			// Position relative to start in the Odom frame.
+		double bearing;		// Position bearing from previous point.
+		double distance;	// Distance from previous point.
 	} GPS_POINT;
 
 	enum RESULT_T {

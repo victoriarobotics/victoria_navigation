@@ -96,6 +96,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 
 	if (!last_object_detected_.object_detected) {
 		// Failure, lost sight of the cone.
+		sequential_detection_failures_++;	// Not currently used but maybe used in diagnostics or recovery later.
 		ros::Time now = ros::Time::now();
 		ros::Duration duration_since_last_saw_cone = now - time_last_saw_cone;
 		if (duration_since_last_saw_cone.toSec() > 5) {
