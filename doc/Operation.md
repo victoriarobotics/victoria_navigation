@@ -54,3 +54,17 @@ as possible pixels in the cone), and then shrink the white areas (or I've got wh
 by forming an "n by n" ellipse, an image processing "kernel" that is moved over every pixel in the image and performing an erode 
 and dilate process over the pixels encompassed by the kernel. This value determines the size of that kernel. Large values will
 remove useful distinguishing details from the potential pixels in the cone, and small values will leave speckles in the picture.
+
+* **debug_**
+
+If you click on the **debug\_** checkbox, four windows will pop up. You can drag them around and rearrange them, even resize them. An example layout is shown below.
+
+![Cone detector debug windows](/doc/cone_detector_debug_windows.png)
+
+The "A HSV" window shows the output of the threshold operation of the original, downsampled color image after applying the a-prefixed size HSV ranges. When you drag one of the six sliders and release it, the window will show you the resulting thresholded image. You want to come up with a range of values that only shows the cone as much as possible. Yet you don't want to be overly selective, which would make the filter brittle. There is a tool which can help you with this described later—the KMEANS helper.
+
+Similarly the "B HSV" window shows the output from applying the six b-prefixed HSV ranges to the original, downsampled color image.
+
+The "MERGED_HSV" window shows the resulting "OR" of the "A HSV" and "B HSV" windows.
+
+Finally, the "SMEARED" output shows the results of applying the erode/dilate filters, the polygon formation, the canny filter to gather pixels into lines, turning the polygons into convex hulls over candidate cone areas and using the gausian blur filter. The only interesting detail in all of that is it shows the additional effet of the **poly_epsilon_** and **erode_kernel_size_** sliders. The other computations are (presently) hard coded. This is the important window. What you want to see here is an outline of a cone which is smaller at the top than the bottom and of the appropriate size. It doesn't hurt to have other artifacts in the window unless those artifacts end up looking like cones. The cone detector will reject polygons which are not of the right size and aspect ratio. Having lots of artifacts might slow down the detector, but having a brittle filter that doesn't work when the shading changes or the color temperature of the sun changes, a brittle filter that works on the first cone but not the last won't be valuable.
