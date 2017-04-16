@@ -40,6 +40,7 @@ DiscoverCone::DiscoverCone() :
 	assert(ros::param::get("~cmd_vel_topic_name", cmd_vel_topic_name_));
 	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
 	assert(ros::param::get("~odometry_topic_name", odometry_topic_name_));
+	assert(ros::param::get("~yaw_turn_radians_per_sec", yaw_turn_radians_per_sec_));
 	
 	cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_name_.c_str(), 1);
 
@@ -49,6 +50,7 @@ DiscoverCone::DiscoverCone() :
 	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM cmd_vel_topic_name: %s", cmd_vel_topic_name_.c_str());
 	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM cone_detector_topic_name: %s", cone_detector_topic_name_.c_str());
 	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM odometry_topic_name: %s", odometry_topic_name_.c_str());
+	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM yaw_turn_radians_per_sec: %7.4f", yaw_turn_radians_per_sec_);
 }
 
 // Capture the lates ConeDetector information
@@ -142,7 +144,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		previous_pose_ = last_odometry_msg_.pose.pose.orientation;
 
 		cmd_vel.linear.x = 0;
-		cmd_vel.angular.z = 0.4; //TODO ### Make configurable.
+		cmd_vel.angular.z = yaw_turn_radians_per_sec_;
 
 		ss << "Rotating";
 		ss << ", original_yaw (deg): " << std::setprecision(5) << angles::to_degrees(original_yaw);

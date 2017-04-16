@@ -62,9 +62,10 @@ private:
 	};
 
 	// Parameters.
-	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
+	std::string cmd_vel_topic_name_;		// Topic name containing cmd_vel message.
 	std::string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
 	std::string odometry_topic_name_;		// Topic name containing Odometry message.
+	float yaw_turn_radians_per_sec_;		// Rate to turn around z azis (radians/sec)
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
