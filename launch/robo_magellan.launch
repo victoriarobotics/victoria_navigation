@@ -15,6 +15,7 @@
 	<arg name="equate_size_to_bumper_hit" default="false" doc="True =&gt; cone size &gt;= xxx is equivalent to a bumper hit" />
 	<arg name="fix_topic_name" default="/fix" doc="fix topic name" />
 	<arg name="gps_close_distance_meters" default="2.0" doc="How close to get to a point using GPS to be considered 'close enough'" />
+	<arg name="ignore_cone_until_within_meters" default="4.0" doc="Ignore the cone detector until within this distance of the goal point" />
 	<arg name="imu_topic_name" default="/imu" doc="IMU topic name" />
 	<arg name="linear_move_meters_per_sec" default="0.3" doc="Rate to move forward in meters/second" />
 	<arg name="magnetic_declination" default="13.42" doc="Magnetic declination adjustment for IMU reading" />
@@ -35,6 +36,7 @@
 	  	<param name="do_debug_strategy" value="$(arg do_debug_strategy)" />
 	  	<param name="fix_topic_name" value="$(arg fix_topic_name)" />
 	  	<param name="gps_close_distance_meters" value="$(arg gps_close_distance_meters)" />
+	  	<param name="ignore_cone_until_within_meters" value="$(arg ignore_cone_until_within_meters)" />
 	  	<param name="imu_topic_name" value="$(arg imu_topic_name)" />
 	  	<param name="linear_move_meters_per_sec" value="$(arg linear_move_meters_per_sec)" />
 	  	<param name="magnetic_declination" value="$(arg magnetic_declination)" />

@@ -46,6 +46,7 @@ SeekToGps::SeekToGps() :
 	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
 	assert(ros::param::get("~fix_topic_name", fix_topic_name_));
 	assert(ros::param::get("~gps_close_distance_meters", gps_close_distance_meters_));
+	assert(ros::param::get("~ignore_cone_until_within_meters", ignore_cone_until_within_meters_));
 	assert(ros::param::get("~imu_topic_name", imu_topic_name_));
 	assert(ros::param::get("~linear_move_meters_per_sec", linear_move_meters_per_sec_));
 	assert(ros::param::get("~magnetic_declination", magnetic_declination_));
@@ -66,6 +67,7 @@ SeekToGps::SeekToGps() :
 	ROS_INFO("[SeekToGps] PARAM cone_detector_topic_name: %s", cone_detector_topic_name_.c_str());
 	ROS_INFO("[SeekToGps] PARAM fix_topic_name: %s", fix_topic_name_.c_str());
 	ROS_INFO("[SeekToGps] PARAM gps_close_distance_meters: %7.4f", gps_close_distance_meters_);
+	ROS_INFO("[SeekToGps] PARAM ignore_cone_until_within_meters: %7.4f", ignore_cone_until_within_meters_);
 	ROS_INFO("[SeekToGps] PARAM imu_topic_name: %s", imu_topic_name_.c_str());
 	ROS_INFO("[SeekToGps] PARAM linear_move_meters_per_sec: %7.4f", linear_move_meters_per_sec_);
 	ROS_INFO("[SeekToGps] PARAM magnetic_declination: %7.4f", magnetic_declination_);
@@ -113,9 +115,10 @@ double SeekToGps::odomBearing(double x1, double y1, double x2, double y2) {
 }
 
 StrategyFn::RESULT_T SeekToGps::tick() {
-	geometry_msgs::Twist		cmd_vel;		// For sending movement commands to the robot.
-	RESULT_T 					result = FATAL;	// Assume fatality in the algorithm.
-	std::ostringstream 				ss;				// For sending informations messages.
+	bool						force_report = false; 	// Force status report.
+	geometry_msgs::Twist		cmd_vel;				// For sending movement commands to the robot.
+	RESULT_T 					result = FATAL;			// Assume fatality in the algorithm.
+	std::ostringstream 				ss;					// For sending informations messages.
 
 	if (StrategyFn::currentGoalName() != goalName()) {
 		// This is not a problem the behavior can solve.
@@ -147,24 +150,7 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 	}
 
 	const GPS_POINT& goal_gps_point = currentGpsPoint();	// Get the goal waypoint.
-
-	if (goal_gps_point.has_cone && last_object_detector_msg_.object_detected) {
-		// Success! Stop when a RoboMagellan cone is seen.
-		resetGoal();
-		
-		cmd_vel.linear.x = 0;	// Stop motion.
-		cmd_vel.angular.z = 0.0;
-		cmd_vel_pub_.publish(cmd_vel);
-
-		// Publish information.
-		ss << "SUCCESS Object detected, STOP";
-		ss << ", area: " << last_object_detector_msg_.object_area;
-		publishStrategyProgress("SeekToGps::tick", ss.str());
-		
-		// Standard way to indicate success.
-		popGoal();
-		return setGoalResult(SUCCESS);
-	}
+	ss << "pt: " << goal_gps_point.point_number << " ";
 
 	// Convert the goal waypoint into a NavSatFix format.
 	sensor_msgs::NavSatFix goal_as_nav_sat_fix;
@@ -188,13 +174,52 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 		point_distance = distance(last_fix_msg_, goal_as_nav_sat_fix);
 	}
 
-	// Begin forming an informational message.
-	ss << "AT lat: " << std::setprecision(10) << last_fix_msg_.latitude
-	   << ", lon: " << std::setprecision(10) << last_fix_msg_.longitude
-	   << ", x: " << std::setprecision(3) << last_odometry_msg_.pose.pose.position.x
-	   << ", y: " << std::setprecision(3) << last_odometry_msg_.pose.pose.position.y
-	   << ", dist: "  << std::setprecision(3) << point_distance
-	   << ", cg_bearing/d: " << std::setprecision(4) << angles::to_degrees(current_to_goal_bearing);
+	// Compute the direction the robot needs to be pointing to.
+	goal_yaw_ = angles::normalize_angle((M_PI / 2.0) - current_to_goal_bearing);; // Convert GPS heading to ROS heading.
+	double goal_yaw_delta = 0; // How far off is the current heading from the desired heading?
+	double corrected_yaw = 0;  // Current heading corrected, if necessary, by magnetic declination.
+
+	if (use_imu_) {
+		// Use the Imu as truth for the current robot heading.
+		tf::Quaternion imu_orientation;
+		tf::quaternionMsgToTF(last_imu_msg_.orientation, imu_orientation);
+		double imu_yaw = tf::getYaw(imu_orientation);
+		corrected_yaw = imu_yaw + angles::from_degrees(magnetic_declination_);
+	} else {
+		// Use the Odometry as truth for the current robot heading.
+		tf::Quaternion odom_orientation;
+		tf::quaternionMsgToTF(last_odometry_msg_.pose.pose.orientation, odom_orientation);
+		double odometry_yaw = tf::getYaw(odom_orientation);
+		corrected_yaw = odometry_yaw;
+	}
+
+	if (goal_gps_point.has_cone &&
+		last_object_detector_msg_.object_detected &&
+		(point_distance <= ignore_cone_until_within_meters_)) {
+		// Success! Stop when a RoboMagellan cone is seen.
+		resetGoal();
+		
+		cmd_vel.linear.x = 0;	// Stop motion.
+		cmd_vel.angular.z = 0.0;
+		cmd_vel_pub_.publish(cmd_vel);
+
+		// Publish information.
+		ss << "SUCCESS Object detected, STOP";
+		ss << ", cone area: " << last_object_detector_msg_.object_area;
+		publishStrategyProgress("SeekToGps::tick", ss.str(), true);
+		
+		// Standard way to indicate success.
+		popGoal();
+		return setGoalResult(SUCCESS);
+	}
+
+	char msg[256];
+	sprintf(msg, "%s head: % #6.1f, goal head: % #6.1f, dist: % #5.1f",
+			use_imu_ ? "IMU" : "ODOM",
+			angles::to_degrees(corrected_yaw),
+			angles::to_degrees(current_to_goal_bearing),
+			point_distance);
+	ss << msg;
 
 	// Is the robot "close enough"?
 	if (point_distance < gps_close_distance_meters_) {
@@ -207,38 +232,15 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 		// cmd_vel_pub_.publish(cmd_vel);
 
 		// Publish information.
-		ss << ". SUCCESS close to point, STOP";
-		publishStrategyProgress("SeekToGps::tick", ss.str());
+		ss << ". SUCCESS close to goal, STOP";
+		publishStrategyProgress("SeekToGps::tick", ss.str(), true);
 
 		// Standard way to indicate success.
 		popGoal();
 		return setGoalResult(SUCCESS);
 	}
 
-	// Compute the direction the robot needs to be pointing to.
-	goal_yaw_ = angles::normalize_angle((M_PI / 2.0) - current_to_goal_bearing);; // Convert GPS heading to ROS heading.
-	double goal_yaw_delta = 0; // How far off is the current heading from the desired heading?
-	double corrected_yaw = 0;  // Current heading corrected, if necessary, by magnetic declination.
-
-	if (use_imu_) {
-		// Use the Imu as truth for the current robot heading.
-		tf::Quaternion imu_orientation;
-		tf::quaternionMsgToTF(last_imu_msg_.orientation, imu_orientation);
-		double imu_yaw = tf::getYaw(imu_orientation);
-		corrected_yaw = imu_yaw + angles::from_degrees(magnetic_declination_);
-		ss << ", imuyaw/d: " << std::setprecision(4) << angles::to_degrees(corrected_yaw);
-	} else {
-		// Use the Odometry as truth for the current robot heading.
-		tf::Quaternion odom_orientation;
-		tf::quaternionMsgToTF(last_odometry_msg_.pose.pose.orientation, odom_orientation);
-		double odometry_yaw = tf::getYaw(odom_orientation);
-		corrected_yaw = odometry_yaw;
-		ss << ", odoyaw/d: " << std::setprecision(4) << angles::to_degrees(odometry_yaw);
-	}
-
 	goal_yaw_delta = angles::shortest_angular_distance(corrected_yaw, goal_yaw_);  // How far off is the current heading?
-	ss << ", goal/d: " << std::setprecision(4) << angles::to_degrees(goal_yaw_);
-	ss << ", delta/d: " << std::setprecision(4) << angles::to_degrees(goal_yaw_delta);
 	switch (state_) {
 	case SETUP:
 		// The first time through, just gather data.
@@ -249,17 +251,16 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 		   << ", head: " << std::setprecision(4) << goal_gps_point.bearing
 		   << ", x: " << std::setprecision(3) << goal_gps_point.x
 		   << ", y: " << std::setprecision(3) << goal_gps_point.y
-		   << ", cone: " << (goal_gps_point.has_cone ? "T" : "F");
+		   << ", has_cone: " << (goal_gps_point.has_cone ? "T" : "F");
 		state_ = ROTATING_TO_HEADING;
 		result = RUNNING;
+		force_report = true;
 		break;
 
 	case ROTATING_TO_HEADING:
 		// The robot may not be pionting towards the goal waypoint. If not, rotate so it is.
 		if (fabs(goal_yaw_delta) < angles::from_degrees(goal_yaw_degrees_delta_threshold_)) {
 			// Close enough to desired heading. Just move.
-			ss << ". ROTATING_TO_HEADING and delta yaw (deg): " << std::setprecision(4) << angles::to_degrees(goal_yaw_delta)
-			   << " is close enough. Changing state to SEEKING_POINT";
 			state_ = SEEKING_POINT;
 			result = RUNNING;
 		} else {
@@ -268,8 +269,6 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 			cmd_vel.linear.x = linear_move_meters_per_sec_ / 2.0;
 			cmd_vel.angular.z = goal_yaw_delta > 0 ? yaw_turn_radians_per_sec_ : -yaw_turn_radians_per_sec_;
 			cmd_vel_pub_.publish(cmd_vel);
-
-			ss << ". rot, x: " << std::setprecision(3) << cmd_vel.linear.x << ", z: " << std::setprecision(3) << cmd_vel.angular.z;
 			result = RUNNING;
 		}
 
@@ -279,16 +278,12 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 		// The robot is heading in the right direction and isn't close enough yet.
 		// Move the robot forward a bit each time the behavior is invoked. 
 		if (fabs(goal_yaw_delta) >= angles::from_degrees(goal_yaw_degrees_delta_threshold_)) {
-			ss << ". SEEKING_POINT and delta_yaw (deg): "
-			   << angles::to_degrees(goal_yaw_delta)
-			   << " has become large. Changing state to ROTATING_TO_HEADING";
 			state_ = ROTATING_TO_HEADING;
 			result = RUNNING;
 		} else {
 			cmd_vel.linear.x = linear_move_meters_per_sec_;
 			cmd_vel.angular.z = 0;
 			cmd_vel_pub_.publish(cmd_vel);
-			ss << ". SEEKING_POINT, gofwd, x: " << std::setprecision(3) << cmd_vel.linear.x << ", z: " << std::setprecision(3) << cmd_vel.angular.z;
 			result = RUNNING;
 		}
 
@@ -299,8 +294,7 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 		break;
 	}
 
-
-	publishStrategyProgress("SeekToGps::tick", ss.str());
+	publishStrategyProgress("SeekToGps::tick", ss.str(), force_report);
 	return result;
 }
 

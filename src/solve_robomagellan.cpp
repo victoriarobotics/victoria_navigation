@@ -126,6 +126,7 @@ void SolveRoboMagellan::createGpsPointSet(std::string waypoint_yaml_path) {
 		gps_point.x = point_distance * cos(goal_yaw);
 		gps_point.y = point_distance * sin(goal_yaw);
 		gps_point.distance = point_distance;
+		gps_point.point_number = point_number;
 		gps_points_.push_back(gps_point);
 		ROS_INFO("[SolveRoboMagellan::createGpsPointSet] point: %d"
 				  ", FROM lat: %11.7f"

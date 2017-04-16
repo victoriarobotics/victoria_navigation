@@ -24,6 +24,7 @@ public:
 		double y;			// Position relative to start in the Odom frame.
 		double bearing;		// Position bearing from previous point.
 		double distance;	// Distance from previous point.
+		int point_number;	// Sequence number of point.
 	} GPS_POINT;
 
 	enum RESULT_T {
@@ -43,6 +44,7 @@ protected:
 	static const std::string G_EMPTY_STRING_;		// Singleton empty string.
 	static const std::string G_NO_GOAL_NAME_;		// Singleton string for name of non-existing goal.
 	static RESULT_T g_last_goal_result_;			// Last result of current goal tick().
+	static ros::Time last_status_report_time_;		// Time last publishStrategyProgress reported.
 
 	// ROS node handle.
 	ros::NodeHandle nh_;
@@ -54,18 +56,22 @@ protected:
 	ros::Publisher current_strategy_pub_;
 	ros::Publisher strategy_status_publisher_;
 
-	void publishStrategyProgress(const std::string& strategy_name, const std::string& progress) {
-		static std::map<std::string, std::string> last_progress_message;
-		actionlib_msgs::GoalStatus 	goal_status;
-		std::ostringstream ss;
+	void publishStrategyProgress(const std::string& strategy_name, const std::string& progress, bool force=false) {
+		ros::Duration duration_since_last_report = ros::Time::now() - last_status_report_time_;
+		if (force || (duration_since_last_report.toSec() >= 1)) {
+			static std::map<std::string, std::string> last_progress_message;
+			actionlib_msgs::GoalStatus 	goal_status;
+			std::ostringstream ss;
 
-		ss << "[" << strategy_name << "] " << progress;
-		goal_status.goal_id.stamp = ros::Time::now();
-		goal_status.goal_id.id = strategy_name;
-		goal_status.status = actionlib_msgs::GoalStatus::ACTIVE;
-		goal_status.text = ss.str();
-		strategy_status_publisher_.publish(goal_status);
-		ROS_INFO_COND(do_debug_strategy_, "%s", ss.str().c_str());
+			ss << "[" << strategy_name << "] " << progress;
+			goal_status.goal_id.stamp = ros::Time::now();
+			goal_status.goal_id.id = strategy_name;
+			goal_status.status = actionlib_msgs::GoalStatus::ACTIVE;
+			goal_status.text = ss.str();
+			strategy_status_publisher_.publish(goal_status);
+			ROS_INFO_COND(do_debug_strategy_, "%s", ss.str().c_str());
+			last_status_report_time_ = ros::Time::now();
+		}
 	}
 
 	StrategyFn() {

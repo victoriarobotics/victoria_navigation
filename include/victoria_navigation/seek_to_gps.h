@@ -103,6 +103,7 @@ private:
 	std::string cone_detector_topic_name_;	// Topic name containing ConeDetector message.
 	std::string fix_topic_name_;			// Topic name containing fix message.
 	double gps_close_distance_meters_;		// How close to seek the point using GPS before assuming it's "close enough".
+	float ignore_cone_until_within_meters_; // Ignore the cone detector until within this distance of the goal point.
 	std::string imu_topic_name_;			// Topic name containing IMU message. Used only if use_imu_ => true.
 	float linear_move_meters_per_sec_;		// Rate to move forward (meters/sec).
 	double magnetic_declination_;			// Magnetic declination adjustment to be applied to IMU.

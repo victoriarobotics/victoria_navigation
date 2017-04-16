@@ -145,9 +145,8 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			cmd_vel.linear.x = 0;
 			cmd_vel.angular.z = 0;
 			cmd_vel_pub_.publish(cmd_vel);
-			ss << " SUCCESS Close to object, STOP";
+			ss << " SUCCESS bumper hit, stopped";
 			ss << ", area: " << last_object_detected_.object_area;
-			ss << ", cone_area_for_bumper_hit: " << cone_area_for_bumper_hit_;
 			publishStrategyProgress("MoveToCone::tick", ss.str());
 			popGoal();
 			return setGoalResult(SUCCESS);
