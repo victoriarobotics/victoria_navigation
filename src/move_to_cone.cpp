@@ -41,6 +41,8 @@ MoveToCone::MoveToCone() :
 	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
 	assert(ros::param::get("~distance_displacement_1d_topic_name", distance_displacement_1d_topic_name_));
 	assert(ros::param::get("~equate_size_to_bumper_hit", equate_size_to_bumper_hit_));
+	assert(ros::param::get("~linear_move_meters_per_sec", linear_move_meters_per_sec_));
+	assert(ros::param::get("~yaw_turn_radians_per_sec", yaw_turn_radians_per_sec_));
 	
 	cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_name_.c_str(), 1);
 
@@ -52,6 +54,8 @@ MoveToCone::MoveToCone() :
 	ROS_INFO("[MoveToCone] PARAM cone_detector_topic_name: %s", cone_detector_topic_name_.c_str());
 	ROS_INFO("[MoveToCone] PARAM distance_displacement_1d_topic_name_: %s", distance_displacement_1d_topic_name_.c_str());
 	ROS_INFO("[MoveToCone] PARAM equate_size_to_bumper_hit: %s", equate_size_to_bumper_hit_ ? "TRUE" : "FALSE");
+	ROS_INFO("[MoveToCone] PARAM linear_move_meters_per_sec: %7.4f", linear_move_meters_per_sec_);
+	ROS_INFO("[MoveToCone] PARAM yaw_turn_radians_per_sec: %7.4f", yaw_turn_radians_per_sec_);
 }
 
 // Capture the lates ConeDetector information
@@ -156,7 +160,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 		object_x = last_object_detected_.object_x;
 		if (abs((image_width / 2) - object_x) < (image_width / 40)) {
 			// Heading generally in the right direction.
-			cmd_vel.linear.x = 0.15; //### Arbitrary.
+			cmd_vel.linear.x = linear_move_meters_per_sec_;
 			cmd_vel.angular.z = 0;
 			cmd_vel_pub_.publish(cmd_vel);
 			ss << "Go straight, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
@@ -164,8 +168,8 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 		} else {
 			// Turn towards cone.
 			if (last_object_detected_.image_width > 0) {
-				cmd_vel.linear.x = 0.2; //### Arbitrary.
-				cmd_vel.angular.z = ((image_width / 2.0) - last_object_detected_.object_x) / last_object_detected_.image_width;
+				cmd_vel.linear.x = linear_move_meters_per_sec_ / 2.0;
+				cmd_vel.angular.z = ((image_width / 2.0) - last_object_detected_.object_x) > 0 ? yaw_turn_radians_per_sec_ : -yaw_turn_radians_per_sec_;
 				cmd_vel_pub_.publish(cmd_vel);
 				ss << "Turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
 				ss << ", area: " << last_object_detected_.object_area;

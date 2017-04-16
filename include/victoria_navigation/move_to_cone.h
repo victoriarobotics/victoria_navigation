@@ -59,6 +59,8 @@ private:
 	std::string cmd_vel_topic_name_;					// Topic name containing cmd_vel message.
 	std::string cone_detector_topic_name_;				// Topic name containing cone_detector message.
 	std::string distance_displacement_1d_topic_name_;	// Topic containing DistanceDisplacement1D message.
+	float linear_move_meters_per_sec_;					// Rate to move forward (meters/sec).
+	float yaw_turn_radians_per_sec_;					// Rate to turn around z azis (radians/sec)
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
