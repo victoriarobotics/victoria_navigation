@@ -2,7 +2,7 @@
 <launch>
   
 <node name="depthimage_to_laserscan" pkg="depthimage_to_laserscan" type="depthimage_to_laserscan" > 
-    <param name="scan_height" value="1"/>
+    <param name="scan_height" value="250"/>
     <param name="range_min" value="0.6"/>
     <param name="range_max" value="4.0"/>
     <param name="output_frame_id" value="camera_depth_frame2"/>
