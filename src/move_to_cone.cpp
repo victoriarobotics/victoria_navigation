@@ -56,6 +56,8 @@ MoveToCone::MoveToCone() :
 	ROS_INFO("[MoveToCone] PARAM equate_size_to_bumper_hit: %s", equate_size_to_bumper_hit_ ? "TRUE" : "FALSE");
 	ROS_INFO("[MoveToCone] PARAM linear_move_meters_per_sec: %7.4f", linear_move_meters_per_sec_);
 	ROS_INFO("[MoveToCone] PARAM yaw_turn_radians_per_sec: %7.4f", yaw_turn_radians_per_sec_);
+
+    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
 }
 
 // Capture the lates ConeDetector information
@@ -89,6 +91,8 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 
 	if (count_ObjectDetector_msgs_received_ <= 20) {
 		// Wait until ConeDetector messages are received.
+	    annotator_request_.request.annotation = "UL;FFFFFF;MTC Cone wait";
+	    coneDetectorAnnotatorService_.call(annotator_request_);
 		return RUNNING;
 	}
 
@@ -118,10 +122,14 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 
 			// Standard way to indicate failure.
 			popGoal();
+		    annotator_request_.request.annotation = "UL;FFFFFF;MTC FAILED";
+		    coneDetectorAnnotatorService_.call(annotator_request_);
 			return setGoalResult(FAILED); // No object found.
 		} else {
 			// Just ignore object detection failure for a while to see if it's a fluke.
 			// Note we don't stop motor here. We rely on the motor controller to time out.
+		    annotator_request_.request.annotation = "UL;FFFFFF;MTC Lost cone";
+		    coneDetectorAnnotatorService_.call(annotator_request_);
 			return RUNNING;
 		}
 	} else {
@@ -153,6 +161,8 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			ss << ", area: " << last_object_detected_.object_area;
 			publishStrategyProgress("MoveToCone::tick", ss.str());
 			popGoal();
+		    annotator_request_.request.annotation = "UL;FFFFFF;MTC SUCCESS";
+		    coneDetectorAnnotatorService_.call(annotator_request_);
 			return setGoalResult(SUCCESS);
 		} 
 	
@@ -165,6 +175,8 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			cmd_vel_pub_.publish(cmd_vel);
 			ss << "Go straight, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
 			ss << ", area: " << last_object_detected_.object_area;
+		    annotator_request_.request.annotation = "UL;FFFFFF;MTC Move straight";
+		    coneDetectorAnnotatorService_.call(annotator_request_);
 		} else {
 			// Turn towards cone.
 			if (last_object_detected_.image_width > 0) {
@@ -173,11 +185,15 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 				cmd_vel_pub_.publish(cmd_vel);
 				ss << "Turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
 				ss << ", area: " << last_object_detected_.object_area;
+			    annotator_request_.request.annotation = "UL;FFFFFF;MTC Correct yaw";
+			    coneDetectorAnnotatorService_.call(annotator_request_);
 			} else {
 				cmd_vel.linear.x = 0.0;
 				cmd_vel.angular.z = 0.0;
 				cmd_vel_pub_.publish(cmd_vel);
-				ss << "FAULT! image.width <= 0, stoppiong";
+				ss << "FAULT! image.width <= 0, stopping";
+			    annotator_request_.request.annotation = "UL;FFFFFF;MTC Lost cone";
+			    coneDetectorAnnotatorService_.call(annotator_request_);
 			}			
 		}
 

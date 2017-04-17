@@ -127,10 +127,6 @@ bool pushGoalCb(victoria_navigation::PushGoal::Request &request,
         rate.sleep();
         ros::spinOnce();
 
-        victoria_perception::AnnotateDetectorImage srv;
-        srv.request.annotation = "UL;FFFFFF;" + StrategyFn::currentGoalName() + " - " + StrategyFn::resultToString(StrategyFn::lastGoalResult());
-        bool srv_result = annotatorService.call(srv);
-        
         for (std::vector<StrategyFn*>::iterator it = behaviors.begin(); it != behaviors.end(); ++it) {
             // Ask one of the behaviors to try to solve the current problem.
             StrategyFn::RESULT_T result = ((*it)->tick)();

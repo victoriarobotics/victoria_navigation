@@ -140,7 +140,7 @@ public:
 
 	const std::vector<GPS_POINT>* getGpsPoints() { return &gps_points_; }
 	const std::string& goalName() {
-		static const std::string goal_name = "/strategy/solve_robomagellan";
+		static const std::string goal_name = "SolveRoboMagellan";
 		return goal_name;
 	}
 

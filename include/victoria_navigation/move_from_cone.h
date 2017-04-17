@@ -28,8 +28,9 @@
 #include <ros/ros.h>
 #include <string>
 
-#include "victoria_perception/ObjectDetector.h"
 #include "victoria_navigation/strategy_fn.h"
+#include "victoria_perception/AnnotateDetectorImage.h"
+#include "victoria_perception/ObjectDetector.h"
 
 // A behavior that attempts to move from a RoboMagellan cone in order to possibly move to another cone..
 //
@@ -50,6 +51,8 @@ private:
 	// Algorithm variables.
 	STATE state_;
 	ros::Time move_start_time_;
+	ros::ServiceClient coneDetectorAnnotatorService_;	// For annotating the cone detector image.
+	victoria_perception::AnnotateDetectorImage annotator_request_;	// The annotation request.
 	
 	// Reset goal. After this, someone must request the goal again and it will start over.
 	void resetGoal();
@@ -63,7 +66,7 @@ public:
 	RESULT_T tick();
 
 	const std::string& goalName() {
-		static const std::string goal_name = "/strategy/move_from_cone";
+		static const std::string goal_name = "MoveFromCone";
 		return goal_name;
 	}
 

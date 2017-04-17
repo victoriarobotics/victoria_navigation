@@ -30,6 +30,7 @@
 
 #include "victoria_sensor_msgs/DistanceDisplacement1D.h"
 #include "victoria_navigation/strategy_fn.h"
+#include "victoria_perception/AnnotateDetectorImage.h"
 #include "victoria_perception/ObjectDetector.h"
 
 // A behavior that attempts to move to a RoboMagellan cone.
@@ -76,6 +77,8 @@ private:
 	STATE state_;
 	int sequential_detection_failures_;
 	ros::Time time_last_saw_cone;
+	ros::ServiceClient coneDetectorAnnotatorService_;	// For annotating the cone detector image.
+	victoria_perception::AnnotateDetectorImage annotator_request_;	// The annotation request.
 	
 	// Process one cone detector topic message.
 	long int count_ObjectDetector_msgs_received_;
@@ -97,7 +100,7 @@ public:
 	RESULT_T tick();
 
 	const std::string& goalName() {
-		static const std::string goal_name = "/strategy/move_to_cone";
+		static const std::string goal_name = "MoveToCone";
 		return goal_name;
 	}
 

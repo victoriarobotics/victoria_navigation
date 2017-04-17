@@ -51,6 +51,8 @@ DiscoverCone::DiscoverCone() :
 	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM cone_detector_topic_name: %s", cone_detector_topic_name_.c_str());
 	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM odometry_topic_name: %s", odometry_topic_name_.c_str());
 	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM yaw_turn_radians_per_sec: %7.4f", yaw_turn_radians_per_sec_);
+
+    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
 }
 
 // Capture the lates ConeDetector information
@@ -82,11 +84,15 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 
 	if (count_object_detector_msgs_received_ <= 0) {
 		// Wait until ConeDetector messages are received.
+	    annotator_request_.request.annotation = "UL;FFFFFF;DC Cone wait";
+	    coneDetectorAnnotatorService_.call(annotator_request_);
 		return RUNNING;
 	}
 
 	if (count_odometry_msgs_received_ <= 0) {
 		// Wait until Odometry messages are received.
+	    annotator_request_.request.annotation = "UL;FFFFFF;DC Odom wait";
+	    coneDetectorAnnotatorService_.call(annotator_request_);
 		return RUNNING;
 	}
 
@@ -105,6 +111,8 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 
 		// Standard way to indicate success.
 		popGoal();
+	    annotator_request_.request.annotation = "UL;FFFFFF;DC cone SUCCESS";
+	    coneDetectorAnnotatorService_.call(annotator_request_);
 		return setGoalResult(SUCCESS); // Cone found.
 	}
 
@@ -156,16 +164,20 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 			result = setGoalResult(FAILED);
 			popGoal();
 			resetGoal();
+		    annotator_request_.request.annotation = "UL;FFFFFF;DC FAIL";
+		    coneDetectorAnnotatorService_.call(annotator_request_);
 		} else {
 			// Keep rotating.
 			cmd_vel_pub_.publish(cmd_vel);
 			result = RUNNING;
 		}
 
+	    annotator_request_.request.annotation = "UL;FFFFFF;DC rotating";
+	    coneDetectorAnnotatorService_.call(annotator_request_);
 		break;
 
 	default:
-		ss << ". INVALID STATE";
+		ss << "INVALID STATE";
 		break;
 	}
 

@@ -133,9 +133,9 @@ void SolveRoboMagellan::createGpsPointSet(std::string waypoint_yaml_path) {
 				  ", lon: %11.7f"
 				  ", TO lat: %11.7f"
 				  ", lon: %11.7f"
-				  ", distance: %7.4f"
-				  ", GPS heading/d from prev: %7.4f"
-				  ", heading/d from prev: %7.4f"
+				  ", distance: %7.1f"
+				  ", ros heading/d from prev: %7.1f"
+				  ", GPS heading/d from prev: %7.1f"
 				  ", x: %7.3f"
 				  ", y: %7.3f"
 				  ", has_cone: %s",

@@ -31,8 +31,9 @@
 #include <tf/LinearMath/Quaternion.h>
 #include <tf/transform_datatypes.h>
 
-#include "victoria_perception/ObjectDetector.h"
 #include "victoria_navigation/strategy_fn.h"
+#include "victoria_perception/AnnotateDetectorImage.h"
+#include "victoria_perception/ObjectDetector.h"
 
 // A behavior that attempts to discover a RoboMagellan cone in the camera.
 //
@@ -80,6 +81,8 @@ private:
 	double starting_yaw_;						// Starting yaw.
 	double total_rotated_yaw_;					// Integration of rotational yaw since start.
 	STATE state_;
+	ros::ServiceClient coneDetectorAnnotatorService_;	// For annotating the cone detector image.
+	victoria_perception::AnnotateDetectorImage annotator_request_;	// The annotation request.
 	
 	// Process one ConeDetector topic message.
 	long int count_object_detector_msgs_received_;
@@ -103,7 +106,7 @@ public:
 	RESULT_T tick();
 
 	const std::string& goalName() {
-		static std::string need_to_discover_cone = "/strategy/need_to_discover_cone";
+		static std::string need_to_discover_cone = "DiscoverCone";
 		return need_to_discover_cone;
 	}
 

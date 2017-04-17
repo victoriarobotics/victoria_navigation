@@ -36,8 +36,9 @@
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
-#include "victoria_perception/ObjectDetector.h"
 #include "victoria_navigation/strategy_fn.h"
+#include "victoria_perception/AnnotateDetectorImage.h"
+#include "victoria_perception/ObjectDetector.h"
 
 // A behavior that attempts to get close to a GPS waypoint.
 //
@@ -122,13 +123,14 @@ private:
 	ros::Subscriber odometry_sub_;
 
 	// Algorithm variables.
-	double goal_yaw_;							// Goal heading.
-	geometry_msgs::Quaternion previous_pose_;	// Pose from last Odometry message.
-	nav_msgs::Odometry starting_odometry_msg_;	// Odometry mesage at start of rotation strategy.
-	double starting_yaw_;						// Starting yaw.
-	double total_rotated_yaw_;					// Integration of rotational yaw since start.
-	STATE state_;								// State of state machine.
-	double goal_yaw_degrees_delta_threshold_;	// If delta is less than this, don't bother rotating.
+	geometry_msgs::Quaternion previous_pose_;		// Pose from last Odometry message.
+	nav_msgs::Odometry starting_odometry_msg_;		// Odometry mesage at start of rotation strategy.
+	double starting_yaw_;							// Starting yaw.
+	double total_rotated_yaw_;						// Integration of rotational yaw since start.
+	STATE state_;									// State of state machine.
+	double heading_to_waypoint_degrees_delta_threshold_;	// If delta is less than this, don't bother rotating.
+	ros::ServiceClient coneDetectorAnnotatorService_;	// For annotating the cone detector image.
+	victoria_perception::AnnotateDetectorImage annotator_request_;	// The annotation request.
 	
 	// Process one ConeDetector topic message.
 	long int count_object_detector_msgs_received_;
@@ -153,8 +155,8 @@ private:
 	// Reset global state so this behavior can be used to solve the next problem.
 	void resetGoal();
 
- 	// Calculate bearing between two GPS points--accurate for distances for RoboMagellan.
-	double bearing(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
+ 	// Calculate heading between two GPS points--accurate for distances for RoboMagellan.
+	double headingInGpsDegrees(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = angles::from_degrees(from.latitude);
 	    double lon1 = angles::from_degrees(from.longitude);
 	    double lat2 = angles::from_degrees(to.latitude);
@@ -169,8 +171,8 @@ private:
  	
  	double odomBearing(double x1, double y1, double x2, double y2);
 	 
- 	// Calculate distance between two GPS points--accurate for distances for RoboMagellan.
-	double distance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
+ 	// Calculate distance between two GPS points. Accurate for distances used in RoboMagellan.
+	double greatCircleDistance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = angles::from_degrees(from.latitude);
 	    double lon1 = angles::from_degrees(from.longitude);
 	    double lat2 = angles::from_degrees(to.latitude);
@@ -195,7 +197,7 @@ public:
 	RESULT_T tick();
 
 	const std::string& goalName() {
-		static const std::string goal_name = "/strategy/seek_to_gps_point";
+		static const std::string goal_name = "SeekToGps";
 		return goal_name;
 	}
 

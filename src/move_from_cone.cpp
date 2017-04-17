@@ -38,6 +38,8 @@ MoveFromCone::MoveFromCone() :
 	cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_name_.c_str(), 1);
 
 	ROS_INFO("[MoveFromCone] PARAM cmd_vel_topic_name: %s", cmd_vel_topic_name_.c_str());
+
+    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
 }
 
 // Reset global state so this behavior can be used to solve the next problem.
@@ -69,6 +71,8 @@ StrategyFn::RESULT_T MoveFromCone::tick() {
 			cmd_vel.angular.z = 0.0;
 			cmd_vel_pub_.publish(cmd_vel);
 			ss << "Backing up, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
+		    annotator_request_.request.annotation = "UL;FFFFFF;MFC Moving";
+		    coneDetectorAnnotatorService_.call(annotator_request_);
 		} else {
 			resetGoal();
 			cmd_vel.linear.x = 0;
@@ -77,6 +81,8 @@ StrategyFn::RESULT_T MoveFromCone::tick() {
 			ss << "SUCCESS backed up.";
 			publishStrategyProgress("MoveFromCone::tick", ss.str());
 			popGoal();
+		    annotator_request_.request.annotation = "UL;FFFFFF;MFC SUCCESS";
+		    coneDetectorAnnotatorService_.call(annotator_request_);
 			return setGoalResult(SUCCESS);
 		}
 
