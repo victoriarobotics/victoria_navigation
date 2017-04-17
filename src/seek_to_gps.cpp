@@ -108,7 +108,7 @@ void SeekToGps::resetGoal() {
 	state_ = SEEKING_POINT;
 }
 
-double SeekToGps::odomBearing(double x1, double y1, double x2, double y2) {
+double SeekToGps::odomHeading(double x1, double y1, double x2, double y2) {
     if ((x1 == x2) && (y1 == y2)) return 0;
     double theta = -atan2(y1 - y2, x2 - x1 );
     theta = angles::normalize_angle(theta);
@@ -170,11 +170,11 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 	// Compute the heading and distance from the current position to the goal waypoint.
 	double robot_to_waypoint_heading;
 	if (solve_using_odom_) {
-		robot_to_waypoint_heading = odomBearing(last_odometry_msg_.pose.pose.position.x, last_odometry_msg_.pose.pose.position.y,
+		robot_to_waypoint_heading = odomHeading(last_odometry_msg_.pose.pose.position.x, last_odometry_msg_.pose.pose.position.y,
 												waypoint.x, waypoint.y);
 	} else {
 		// GPS calculatio results in GPS degreess, which is 90 degrees off from the ROS framework.
-		robot_to_waypoint_heading = angles::normalize_angle((M_PI / 2.0) - headingInGpsDegrees(last_fix_msg_, waypoint_as_nav_sat_fix));
+		robot_to_waypoint_heading = angles::normalize_angle((M_PI / 2.0) - headingInGpsCoordinates(last_fix_msg_, waypoint_as_nav_sat_fix));
 	}
 
 	double robot_to_waypoint_distance;

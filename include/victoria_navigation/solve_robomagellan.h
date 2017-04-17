@@ -92,8 +92,8 @@ private:
 	static sensor_msgs::NavSatFix g_last_Fix_msg_;
 	static void fixCb(const sensor_msgs::NavSatFixConstPtr& msg);
 
- 	// Calculate bearing between two GPS points--accurate for distances at RoboMagellan scale.
-	static double bearing(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
+  	// Calculate heading between two GPS points in the GPS coordinate system--accurate for distances for RoboMagellan.
+	static double headingInGpsCoordinates(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = angles::from_degrees(from.latitude);
 	    double lon1 = angles::from_degrees(from.longitude);
 	    double lat2 = angles::from_degrees(to.latitude);
@@ -109,9 +109,9 @@ private:
 	static void createGpsPointSet(std::string waypoint_yaml_path);
 	 
 	 
- 	// Calculate distance between two GPS points--accurate for distances for RoboMagellan.
- 	// See the 'haversine' formula in http://www.movable-type.co.uk/scripts/latlong.html
-	static double distance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
+ 	// Calculate distance between two GPS points. Accurate for distances used in RoboMagellan.
+	// See the 'haversine' formula in http://www.movable-type.co.uk/scripts/latlong.html
+ 	static double greatCircleDistance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = angles::from_degrees(from.latitude);
 	    double lon1 = angles::from_degrees(from.longitude);
 	    double lat2 = angles::from_degrees(to.latitude);

@@ -155,8 +155,8 @@ private:
 	// Reset global state so this behavior can be used to solve the next problem.
 	void resetGoal();
 
- 	// Calculate heading between two GPS points--accurate for distances for RoboMagellan.
-	double headingInGpsDegrees(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
+ 	// Calculate heading between two GPS points in the GPS coordinate system--accurate for distances for RoboMagellan.
+	double headingInGpsCoordinates(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = angles::from_degrees(from.latitude);
 	    double lon1 = angles::from_degrees(from.longitude);
 	    double lat2 = angles::from_degrees(to.latitude);
@@ -169,7 +169,7 @@ private:
 	    return atan2(y, x);
 	}
  	
- 	double odomBearing(double x1, double y1, double x2, double y2);
+ 	double odomHeading(double x1, double y1, double x2, double y2);
 	 
  	// Calculate distance between two GPS points. Accurate for distances used in RoboMagellan.
 	double greatCircleDistance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {

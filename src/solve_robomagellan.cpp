@@ -111,6 +111,12 @@ void SolveRoboMagellan::createGpsPointSet(std::string waypoint_yaml_path) {
 		// Compute the heading and distance from one point to the next for all points.
 		YAML::Node n = *yamlPoint;
 		GPS_POINT gps_point;
+		if (n["is_home"] && n["is_home"].as<bool>()) {
+			g_first_Fix_msg_.latitude = n["latitude"].as<double>();
+			g_first_Fix_msg_.longitude = n["longitude"].as<double>();
+			continue;
+		}
+
 		gps_point.latitude = n["latitude"].as<double>();
 		gps_point.longitude = n["longitude"].as<double>();
 		gps_point.has_cone = n["has_cone"].as<bool>();
@@ -118,13 +124,15 @@ void SolveRoboMagellan::createGpsPointSet(std::string waypoint_yaml_path) {
 		sensor_msgs::NavSatFix yaml_point_as_fix;
 		yaml_point_as_fix.latitude = gps_point.latitude;
 		yaml_point_as_fix.longitude = gps_point.longitude;
-		double point_bearing_gps = bearing(previous_point, yaml_point_as_fix);
-		double point_distance = distance(previous_point, yaml_point_as_fix);
+		double point_bearing_gps = headingInGpsCoordinates(previous_point, yaml_point_as_fix);
+		double point_distance = greatCircleDistance(previous_point, yaml_point_as_fix);
+		double point_bearing_odom = headingInGpsCoordinates(g_first_Fix_msg_, yaml_point_as_fix);
+		double point_distance_odom = greatCircleDistance(g_first_Fix_msg_, yaml_point_as_fix);
 		double goal_yaw = angles::normalize_angle((M_PI / 2.0) - point_bearing_gps);
 
 		gps_point.bearing = goal_yaw;
-		gps_point.x = point_distance * cos(goal_yaw);
-		gps_point.y = point_distance * sin(goal_yaw);
+		gps_point.x = point_distance_odom * cos(goal_yaw);
+		gps_point.y = point_distance_odom * sin(goal_yaw);
 		gps_point.distance = point_distance;
 		gps_point.point_number = point_number;
 		gps_points_.push_back(gps_point);
