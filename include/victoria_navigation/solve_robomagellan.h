@@ -35,30 +35,32 @@
 #include "victoria_navigation/solve_robomagellan.h"
 #include "victoria_navigation/strategy_fn.h"
 #include "victoria_perception/AnnotateDetectorImage.h"
-
-// A behavior that solves the overall RoboMagellan contest.
-//
-// The behavior works as follows:
-//		* Read a list of GPS waypoints and compute the bearing and heading of the next point of each point (except the last).
-//		* Wait until messages are received from the GPS.
-//		* The first time this behavior sees this problem, build a list of internal goal waypoints from the yaml listm
-//		  computing the bearing and heading of the next point of each point (except the last).
-//		  push the next (first) goal waypoint via pushGpsPoint() so that SeekToGps can work on it.
-//		  Push the SeekToGps goal as the current goal so it will move the robot near to the waypoint.
-//		  Set the state to MOVE_TO_GPS_POINT to away completion of the SeekToGps goal. 
-//		* If the state is MOVE_TO_GPS_POINT, the SeekToGps goal must have finished. If there is a cone
-//		  at the current waypoint, push the DiscoverCone goal and set the state to FIND_CONE_IN_CAMERA.
-//		  Else set the state to ADVANCE_TO_NEXT_POINT.
-//		* If the state is FIND_CONE_IN_CAMERA, push the DiscoverCone goal and set the state to MOVE_TO_CONE.
-//		* If the state is MOVE_TO_CONE, the DiscoverCone goal must have finished. Push the MoveToCone goal
-//		  and set the state to MOVE_FROM_CONE;
-//		* If the state is MOVE_FROM_CONE, the MoveToCone goal must have finished. Push the MoveFromCone goal
-//		  and set the state to ADVANCE_TO_NEXT_POINT.
-//		* If the state is ADVANCE_TO_NEXT_POINT, then if there are no more points indicate SUCCESS and
-//		   reset the behavior. Else advance to the next point and set the state to MOVE_TO_GPS_POINT.
-//
+//* A SolveRoboMagellan class.
+/**
+* A problem solver that solves the overall RoboMagellan contest.
+*
+* The problem solver attempts to solve the whole RoboMagellan problem—traversing to a list of waypoints
+* and ultimately touching the last cone.
+*
+* The singleton instance of the problem solver, during construction, parses the list of GPS waypoints
+* provided in the YAML file pointed at by the waypoint_yaml_path parameter.
+*
+* The first time the problem solver is invoked to achieve the goal, it begins by waiting on Fix messages. 
+* When at least one message is received, the problem solver proceeds.
+*
+* The problem solver is a state machine that pushes subgoals to advance to the next waypoint in the series
+* and, if that waypoint is supposed to have a cone at that location, it also attempts to touch the cone.
+* So the problem solver iterates over each point in the waypoint list and for each point it sequentially:
+*    * Pushes the SeekToGps goal and also the point to be seeked.
+*    * If the waypoint is supposed to have a cone at the location:
+*        * Push the DiscoverCone goal so that the cone detector for the robot can see the cone.
+*        * Push the MoveToCone goal to touch the cone.
+*        * Push the MoveFromCone to give room to manuever to the next waypoint.
+*    * If there is another point in the list, repeat the process for the next point. Otherwise, the goal is achieved and the problem solver indicates success.
+*/
 class SolveRoboMagellan : public StrategyFn {
 private:
+	/*! \brief The possible states in the state machine. */
 	enum STATE {
 		SETUP,					// Capture initial state.
 		MOVE_TO_GPS_POINT,		// Get close to a waypoint.
@@ -77,7 +79,7 @@ private:
 
 	// Algorithm variables.
 	ros::ServiceClient coneDetectorAnnotatorService_;	// For annotating the cone detector image.
-	static std::vector<GPS_POINT> gps_points_;					// Ordered list of waypoints to traverse.
+	static std::vector<GPS_POINT> gps_points_;			// Ordered list of waypoints to traverse.
 	long int index_next_point_to_seek_;					// Index into list of GPS points to seek to next.
 	victoria_perception::AnnotateDetectorImage annotator_request_;	// The annotation request.
 	STATE state_;										// State of state machine.
@@ -86,13 +88,21 @@ private:
 	// ROS node handle.
 	ros::NodeHandle nh_;
 
-	// Process one Fix topic message.
-	static long int g_count_Fix_msgs_received_;
-	static sensor_msgs::NavSatFix g_first_Fix_msg_;
-	static sensor_msgs::NavSatFix g_last_Fix_msg_;
+	static long int g_count_Fix_msgs_received_;		// Count of how many Fix messages received.
+	static sensor_msgs::NavSatFix g_first_Fix_msg_;	// Captured copy of first Fix message received.
+	static sensor_msgs::NavSatFix g_last_Fix_msg_;	// Captured copy of last Fix message received.
+
+	/*! \brief Process one Fix message.
+	* \param msg The message via the ROS topic framework.
+	*/
 	static void fixCb(const sensor_msgs::NavSatFixConstPtr& msg);
 
-  	// Calculate heading between two GPS points in the GPS coordinate system--accurate for distances for RoboMagellan.
+  	/*! \brief Calculate heading between two GPS points in the GPS coordinate system--accurate 
+  	* for distances for RoboMagellan.
+	* \param from 	Beginning GPS point.
+	* \param to 	Ending GPS point.
+	* Return the heading between the 'from' and 'to' points.
+  	*/
 	static double headingInGpsCoordinates(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = angles::from_degrees(from.latitude);
 	    double lon1 = angles::from_degrees(from.longitude);
@@ -106,11 +116,18 @@ private:
 	    return atan2(y, x);
 	}
 
+	/*! \brief Parse the given yaml file and create an internal list equivalent of GPS points.
+	* \param waypoint_yaml_path 	The path of the yaml file to be parsed.
+	*/
 	static void createGpsPointSet(std::string waypoint_yaml_path);
 	 
 	 
- 	// Calculate distance between two GPS points. Accurate for distances used in RoboMagellan.
-	// See the 'haversine' formula in http://www.movable-type.co.uk/scripts/latlong.html
+ 	/*! \brief Calculate distance between two GPS points. Accurate for distances used in RoboMagellan.
+	* See the 'haversine' formula in http://www.movable-type.co.uk/scripts/latlong.html
+	* \param from 	Beginning GPS point.
+	* \param to 	Ending GPS point.
+	* Return the great circle distance in meters between the 'from' and 'to' points.
+	*/
  	static double greatCircleDistance(sensor_msgs::NavSatFix from, sensor_msgs::NavSatFix to) {
 	    double lat1 = angles::from_degrees(from.latitude);
 	    double lon1 = angles::from_degrees(from.longitude);
@@ -127,8 +144,23 @@ private:
 	    return 6371000.0 * c;
 	}
 
-	// Reset goal. After this, someone must request the goal again and it will start over.
+	/*! \brief Reset goal. After this, someone must request the goal again and it will start over. */
 	void resetGoal();
+
+	/*! \brief Move close to a GPS waypoint. */
+	RESULT_T doMoveToGpsPoint(std::ostringstream& out_ss);
+
+	/*! \brief Rotate until the cone is found in the video stream. */
+	RESULT_T doFindConeInCamera(std::ostringstream& out_ss);
+
+	/*! \brief Move towards and touch a cone. */
+	RESULT_T doMoveToCone(std::ostringstream& out_ss);
+
+	/*! \brief Move away from the cone in order to be ready to move to any next point. */
+	RESULT_T doMoveFromCone(std::ostringstream& out_ss);
+
+	/*! \brief Advance to the next waypoint in the list. */
+	RESULT_T doAdvanceToNextPoint(std::ostringstream& out_ss);
 
 	// Singleton pattern.
 	SolveRoboMagellan();
@@ -138,12 +170,16 @@ private:
 public:
 	RESULT_T tick();
 
+	/*! \brief Return the list of GPS points that define the problem to be solved. */
 	const std::vector<GPS_POINT>* getGpsPoints() { return &gps_points_; }
+
+	/*! \brief Return the name of the problem solver. */
 	const std::string& goalName() {
 		static const std::string goal_name = "SolveRoboMagellan";
 		return goal_name;
 	}
 
+	/*! \brief Return the class name. */
 	const std::string& name() { 
 		static const std::string name = "SolveRoboMagellan";
 		return name;
@@ -151,6 +187,10 @@ public:
 
 	static StrategyFn& singleton();
 
+	/*! brief Convert the state enumeration value into a string.
+	* \param state 	The state enumeration value.
+	* Returns the string equivalent of the state value.
+	*/
 	const std::string& stateName(STATE state) {
 		static const std::string setup = "SETUP";
 		static const std::string move_to_gps_point = "MOVE_TO_GPS_POINT";

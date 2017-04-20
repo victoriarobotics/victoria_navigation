@@ -250,7 +250,7 @@ DiscoverCone::ClusterStatistics DiscoverCone::findNewConeDetectorParameters() {
 	kmeans_request.request.image_topic_name = image_topic_name_;
 	kmeans_request.request.number_clusters = number_of_clusters;
 	kmeans_request.request.resize_width = 320;
-	kmeans_request.request.show_annotated_window = true;
+	kmeans_request.request.show_annotated_window = false;
 	computeKmeansService_.call(kmeans_request);
 	while (ros::ok() && kmeans_request.response.result_msg.empty()) {
 		ros::spinOnce();
