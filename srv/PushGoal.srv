@@ -1,0 +1,10 @@
+# Push a goal on the stack.
+bool push_move_from_cone
+bool push_move_to_cone
+bool push_discover_cone
+bool push_seek_to_gps
+int16 point_number_to_seek_to
+bool push_solve_robomagellan
+bool execute_now
+----
+string result

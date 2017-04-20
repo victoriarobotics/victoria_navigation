@@ -28,8 +28,10 @@
 #include <ros/ros.h>
 #include <string>
 
-#include "victoria_perception/ObjectDetector.h"
+#include "victoria_sensor_msgs/DistanceDisplacement1D.h"
 #include "victoria_navigation/strategy_fn.h"
+#include "victoria_perception/AnnotateDetectorImage.h"
+#include "victoria_perception/ObjectDetector.h"
 
 // A behavior that attempts to move to a RoboMagellan cone.
 //
@@ -49,28 +51,42 @@
 class MoveToCone : public StrategyFn {
 private:
 	enum STATE {
-		kMOVING_TO_CENTERING_POSITION,	// Rotate so the cone is more or less dead center ahead.
-		kMOVING_TO_TOUCH				// Move forward to touch the cone.
+		MOVE_START,						// Start of goal
+		MOVING_TO_CENTERING_POSITION,	// Rotate so the cone is more or less dead center ahead.
+		MOVING_TO_TOUCH				// Move forward to touch the cone.
 	};
 
 	// Parameters.
-	std::string cmd_vel_topic_name_;			// Topic name containing cmd_vel message.
-	std::string cone_detector_topic_name_;	// Topic name containing cone_detector message
+	std::string cmd_vel_topic_name_;					// Topic name containing cmd_vel message.
+	std::string cone_detector_topic_name_;				// Topic name containing cone_detector message.
+	std::string distance_displacement_1d_topic_name_;	// Topic containing DistanceDisplacement1D message.
+	float linear_move_meters_per_sec_;					// Rate to move forward (meters/sec).
+	float yaw_turn_radians_per_sec_;					// Rate to turn around z azis (radians/sec)
 
 	// Publishers.
 	ros::Publisher cmd_vel_pub_;
 
 	// Subscribers.
 	ros::Subscriber	cone_detector_sub_;
+	ros::Subscriber distance_displacement_1d_topic_name_sub_;
 
 	// Algorithm variables.
+	bool bumper_hit_;					// Bumper hit detected.
+	int cone_area_for_bumper_hit_;		// If equate_size_to_bumper_hit_, then a cone area >= this is considered a bumper_hit_.
+	bool equate_size_to_bumper_hit_;	// True => if cone size >= cone_area_for_bumper_hit_ then it's equivalent to bumper_hit_.
 	STATE state_;
 	int sequential_detection_failures_;
+	ros::Time time_last_saw_cone;
+	ros::ServiceClient coneDetectorAnnotatorService_;	// For annotating the cone detector image.
+	victoria_perception::AnnotateDetectorImage annotator_request_;	// The annotation request.
 	
 	// Process one cone detector topic message.
 	long int count_ObjectDetector_msgs_received_;
 	victoria_perception::ObjectDetector last_object_detected_;
 	void coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg);
+
+	// Process DistanceDisplacement1D topic message.
+	void distanceDisplacement1DCb(const victoria_sensor_msgs::DistanceDisplacement1DConstPtr& msg);
 
 	// Reset goal. After this, someone must request the goal again and it will start over.
 	void resetGoal();
@@ -84,7 +100,7 @@ public:
 	RESULT_T tick();
 
 	const std::string& goalName() {
-		static const std::string goal_name = "/strategy/need_to_move_cone";
+		static const std::string goal_name = "MoveToCone";
 		return goal_name;
 	}
 
@@ -93,16 +109,18 @@ public:
 		return name;
 	}
 
-	static MoveToCone& singleton();
+	static StrategyFn& singleton();
 
 	const std::string& stateName(STATE state) {
-		static const std::string moving_to_centering_position = "kMOVING_TO_CENTERING_POSITION";
-		static const std::string moving_to_touch = "kMOVING_TO_TOUCH";
+		static const std::string start = "START";
+		static const std::string moving_to_centering_position = "MOVING_TO_CENTERING_POSITION";
+		static const std::string moving_to_touch = "MOVING_TO_TOUCH";
 		static const std::string unknown = "!!UNKNOWN!!";
 
 		switch (state) {
-			case kMOVING_TO_CENTERING_POSITION:		return moving_to_centering_position;
-			case kMOVING_TO_TOUCH:					return moving_to_touch;
+			case MOVE_START:						return start;
+			case MOVING_TO_CENTERING_POSITION:		return moving_to_centering_position;
+			case MOVING_TO_TOUCH:					return moving_to_touch;
 			default:								return unknown;
 		}
 	}

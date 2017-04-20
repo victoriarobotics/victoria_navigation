@@ -11,6 +11,8 @@ const std::string StrategyFn::G_RESULT_STR_[] = {
 };
 
 const std::string StrategyFn::G_EMPTY_STRING_ = "";
+const std::string StrategyFn::G_NO_GOAL_NAME_ = "<<NO GOAL>>";
 std::vector<StrategyFn::GOAL_T> StrategyFn::g_goal_stack_;
 std::vector<StrategyFn::GPS_POINT> StrategyFn::g_point_stack_;
 StrategyFn::RESULT_T StrategyFn::g_last_goal_result_;
+ros::Time StrategyFn::last_status_report_time_;

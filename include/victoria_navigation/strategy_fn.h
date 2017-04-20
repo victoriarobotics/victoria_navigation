@@ -20,10 +20,11 @@ public:
 		double latitude;
 		double longitude;
 		bool has_cone;
-		double x;			// Position relative to start.
-		double y;			// Position relative to start.
-		double bearing;		// Position bearing from start
-		double distance;	// Distance to point.
+		double x;			// Position relative to start in the Odom frame.
+		double y;			// Position relative to start in the Odom frame.
+		double bearing;		// Position bearing from previous point.
+		double distance;	// Distance from previous point.
+		int point_number;	// Sequence number of point.
 	} GPS_POINT;
 
 	enum RESULT_T {
@@ -41,7 +42,9 @@ protected:
 	static std::vector<GOAL_T> g_goal_stack_;		// Stack of goals to be solved.
 	static std::vector<GPS_POINT> g_point_stack_;	// Stack of goal GPS points, related to g_goal_stack.
 	static const std::string G_EMPTY_STRING_;		// Singleton empty string.
+	static const std::string G_NO_GOAL_NAME_;		// Singleton string for name of non-existing goal.
 	static RESULT_T g_last_goal_result_;			// Last result of current goal tick().
+	static ros::Time last_status_report_time_;		// Time last publishStrategyProgress reported.
 
 	// ROS node handle.
 	ros::NodeHandle nh_;
@@ -53,18 +56,25 @@ protected:
 	ros::Publisher current_strategy_pub_;
 	ros::Publisher strategy_status_publisher_;
 
-	void publishStrategyProgress(const std::string& strategy_name, const std::string& progress) {
-		static std::map<std::string, std::string> last_progress_message;
-		actionlib_msgs::GoalStatus 	goal_status;
+	void publishStrategyProgress(const std::string& strategy_name, const std::string& progress, bool force=false) {
+		ros::Duration duration_since_last_report = ros::Time::now() - last_status_report_time_;
+		static std::string last_progress_message;
 		std::ostringstream ss;
 
 		ss << "[" << strategy_name << "] " << progress;
-		goal_status.goal_id.stamp = ros::Time::now();
-		goal_status.goal_id.id = strategy_name;
-		goal_status.status = actionlib_msgs::GoalStatus::ACTIVE;
-		goal_status.text = ss.str();
-		strategy_status_publisher_.publish(goal_status);
-		ROS_INFO_COND(do_debug_strategy_, "%s", ss.str().c_str());
+		if (force || 
+			(last_progress_message != ss.str()) ||
+			(duration_since_last_report.toSec() >= 1)) {
+			actionlib_msgs::GoalStatus 	goal_status;
+			goal_status.goal_id.stamp = ros::Time::now();
+			goal_status.goal_id.id = strategy_name;
+			goal_status.status = actionlib_msgs::GoalStatus::ACTIVE;
+			goal_status.text = ss.str();
+			strategy_status_publisher_.publish(goal_status);
+			ROS_INFO_COND(do_debug_strategy_, "%s", ss.str().c_str());
+			last_status_report_time_ = ros::Time::now();
+			last_progress_message = ss.str();
+		}
 	}
 
 	StrategyFn() {
@@ -75,7 +85,7 @@ protected:
 
 public:
 	static const std::string& currentGoalName() {
-		if (g_goal_stack_.empty()) return G_EMPTY_STRING_;
+		if (g_goal_stack_.empty()) return G_NO_GOAL_NAME_;
 		else return g_goal_stack_.back().goal_name;
 	}
 
@@ -121,6 +131,9 @@ public:
 		g_last_goal_result_ = result;
 		return result;
 	}
+
+	// Singleton constructor
+	static StrategyFn& singleton();
 
 	// Perform strategy.
 	virtual RESULT_T tick() = 0;
