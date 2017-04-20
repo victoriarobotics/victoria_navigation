@@ -42,6 +42,7 @@
 #include "victoria_perception/ObjectDetector.h"
 
 DiscoverCone::DiscoverCone() :
+	cone_detected_sticky_(false),
 	count_object_detector_msgs_received_(0),
 	state_(CAPTURE_STATE)
 {
@@ -62,13 +63,14 @@ DiscoverCone::DiscoverCone() :
 	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM odometry_topic_name: %s", odometry_topic_name_.c_str());
 	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM yaw_turn_radians_per_sec: %7.4f", yaw_turn_radians_per_sec_);
 
-    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
+    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image");
     computeKmeansService_ = nh_.serviceClient<victoria_perception::ComputeKmeans>("/kmeans_service/compute_kmeans", true);
 }
 
 // Capture the lates ConeDetector information
 void DiscoverCone::coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg) {
 	last_object_detector_msg_ = *msg;
+	cone_detected_sticky_ |= last_object_detector_msg_.object_detected;
 	count_object_detector_msgs_received_++;
 }
 
@@ -257,9 +259,6 @@ DiscoverCone::ClusterStatistics DiscoverCone::findNewConeDetectorParameters() {
 		cv::waitKey(10);
 	}
 
-	ROS_INFO("kmeans.response.result_msg: %s", kmeans_request.response.result_msg.c_str());
-	ROS_INFO("kmeans.response.kmeans_result: %s", kmeans_request.response.kmeans_result.c_str());
-
 	std::vector<std::string> clusters;
 	boost::split(clusters, kmeans_request.response.kmeans_result, boost::is_any_of("}"));
 	if (clusters.size() != (number_of_clusters + 1)) {
@@ -290,7 +289,7 @@ DiscoverCone::ClusterStatistics DiscoverCone::findNewConeDetectorParameters() {
 		new_parameters.min_hue -= 2;
 		new_parameters.max_hue += 2;
 		new_parameters.min_saturation -= 4;
-		new_parameters.max_saturation += 4;
+		new_parameters.max_saturation += 30;
 		new_parameters.min_value -= 10;
 		new_parameters.max_value = 255;
 		setSafeConeDetectorParameters(new_parameters);
@@ -356,7 +355,6 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 		return RUNNING;
 	}
 
-ROS_INFO("[DiscoverCone::tick] state_: %s, count_object_detector_msgs_received_: %ld, detected: %s", stateName(state_).c_str(), count_object_detector_msgs_received_, last_object_detector_msg_.object_detected ? "TRUE" : "FALSE");
 	if (last_object_detector_msg_.object_detected) {
 	// Publish information.
 		ss << " SUCCESS Object detected, STOP";
@@ -456,6 +454,7 @@ StrategyFn::RESULT_T DiscoverCone::doRotatingToDiscover(std::ostringstream& out_
 				// Capture current cone detector message sequence number.
 				recovery_start_sequence_number_ = count_object_detector_msgs_received_;
 		    	state_ = RECOVER_WAIT_NEXT_CONE_DETECTOR_MESSAGE;	// See if that helped.
+		    	cone_detected_sticky_ = false; // Start looking for object now.
 		    	result = RUNNING;
 		    } else {
 				result = failGoal();
@@ -481,17 +480,18 @@ StrategyFn::RESULT_T DiscoverCone::doRotatingToDiscover(std::ostringstream& out_
 StrategyFn::RESULT_T DiscoverCone::doRecoverWaitNextConeDetectionMessage(std::ostringstream& out_ss) {
 	RESULT_T result = FATAL;
 
-	if (last_object_detector_msg_.object_detected) {
+	if (cone_detected_sticky_) {
 		// Cone detector adjustmenst worked. Success.
-ROS_INFO("[DiscoverCone::doRecoverWaitNextConeDetectionMessage] found cone, SUCCESS");//###
+		ROS_INFO("[DiscoverCone::doRecoverWaitNextConeDetectionMessage] found cone, SUCCESS");
 		return succeedGoal();
 	}
 
 	if (total_rotated_yaw_ > (2 * M_PI)) {
 		// Completed a full rotation.
 		out_ss << "RECOVERY ROTATION FAILED no cone found after one rotation. ";
-ROS_INFO("[DiscoverCone::doRecoverWaitNextConeDetectionMessage] completed a revolution, FAIL");//###
 		result = failGoal();
+	} else if (count_object_detector_msgs_received_ > (recovery_start_sequence_number_ + 6)) {
+		// Wait until the cone detector has had a chance with the new settings.
 	} else {
 		// Haven't completed a full rotation yet, keep rotating.
 		geometry_msgs::Twist	cmd_vel;		// For sending movement commands to the robot.
@@ -505,7 +505,6 @@ ROS_INFO("[DiscoverCone::doRecoverWaitNextConeDetectionMessage] completed a revo
 	    annotator_request_.request.annotation = "UL;FFFFFF;DC R-rotating";
 	    coneDetectorAnnotatorService_.call(annotator_request_);
 		out_ss << "RECOVERY Rotating";
-ROS_INFO("[DiscoverCone::doRecoverWaitNextConeDetectionMessage] still rotating revolution");//###
 		result = RUNNING;
 	}
 

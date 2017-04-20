@@ -58,12 +58,14 @@ protected:
 
 	void publishStrategyProgress(const std::string& strategy_name, const std::string& progress, bool force=false) {
 		ros::Duration duration_since_last_report = ros::Time::now() - last_status_report_time_;
-		if (force || (duration_since_last_report.toSec() >= 1)) {
-			static std::map<std::string, std::string> last_progress_message;
-			actionlib_msgs::GoalStatus 	goal_status;
-			std::ostringstream ss;
+		static std::string last_progress_message;
+		std::ostringstream ss;
 
-			ss << "[" << strategy_name << "] " << progress;
+		ss << "[" << strategy_name << "] " << progress;
+		if (force || 
+			(last_progress_message != ss.str()) ||
+			(duration_since_last_report.toSec() >= 1)) {
+			actionlib_msgs::GoalStatus 	goal_status;
 			goal_status.goal_id.stamp = ros::Time::now();
 			goal_status.goal_id.id = strategy_name;
 			goal_status.status = actionlib_msgs::GoalStatus::ACTIVE;
@@ -71,6 +73,7 @@ protected:
 			strategy_status_publisher_.publish(goal_status);
 			ROS_INFO_COND(do_debug_strategy_, "%s", ss.str().c_str());
 			last_status_report_time_ = ros::Time::now();
+			last_progress_message = ss.str();
 		}
 	}
 

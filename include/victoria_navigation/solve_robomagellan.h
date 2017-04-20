@@ -67,7 +67,9 @@ private:
 		FIND_CONE_IN_CAMERA,	// Position the robot so it can see a RoboMagellan cone.
 		MOVE_TO_CONE,			// Move to the cone.
 		MOVE_FROM_CONE,			// Move away from the cone, setting up to move to the next waypoint.
-		ADVANCE_TO_NEXT_POINT	// Advance to the next waypoint.
+		ADVANCE_TO_NEXT_POINT,	// Advance to the next waypoint.
+		MTCR_MOVE_FROM_CONE,	// MoveToCone recovery step: MoveFromCone.
+		MTCR_DISCOVER_CONE		// MoveToCone recovery step: DiscoverCone.
 	};
 
 	// Parameters.
@@ -81,6 +83,7 @@ private:
 	ros::ServiceClient coneDetectorAnnotatorService_;	// For annotating the cone detector image.
 	static std::vector<GPS_POINT> gps_points_;			// Ordered list of waypoints to traverse.
 	long int index_next_point_to_seek_;					// Index into list of GPS points to seek to next.
+	int move_to_cone_recovery_count_;					// For counting recovery attemps.
 	victoria_perception::AnnotateDetectorImage annotator_request_;	// The annotation request.
 	STATE state_;										// State of state machine.
 	YAML::Node waypoints_;								// Waypoints in yaml format.
@@ -162,6 +165,12 @@ private:
 	/*! \brief Advance to the next waypoint in the list. */
 	RESULT_T doAdvanceToNextPoint(std::ostringstream& out_ss);
 
+	/*! \brief MoveToCone recovery step: move away from the cone. */
+	RESULT_T doMtcrMoveFromCone(std::ostringstream& out_ss);
+
+	/*! \brief MoveToCone recovery step: discover cone. */
+	RESULT_T doMtcrDiscoverCone(std::ostringstream& out_ss);
+
 	// Singleton pattern.
 	SolveRoboMagellan();
 	SolveRoboMagellan(SolveRoboMagellan const&) {}
@@ -198,6 +207,8 @@ public:
 		static const std::string move_to_cone = "MOVE_TO_CONE";
 		static const std::string move_from_cone = "MOVE_FROM_CONE";
 		static const std::string advance_to_next_point = "ADVANCE_TO_NEXT_POINT";
+		static const std::string mtcr_move_from_cone = "MTCR_MOVE_FROM_CONE";
+		static const std::string mtcr_discover_cone = "MTCR_DISCOVER_CONE";
 		static const std::string unknown = "!!UNKNOWN!!";
 
 		switch (state) {
@@ -207,6 +218,8 @@ public:
 			case MOVE_TO_CONE:			return move_to_cone;
 			case MOVE_FROM_CONE:		return move_from_cone;
 			case ADVANCE_TO_NEXT_POINT:	return advance_to_next_point;
+			case MTCR_MOVE_FROM_CONE:	return mtcr_move_from_cone;
+			case MTCR_DISCOVER_CONE:	return mtcr_discover_cone;
 			default:					return unknown;
 		}
 	}

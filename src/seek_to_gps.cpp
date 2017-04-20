@@ -76,7 +76,7 @@ SeekToGps::SeekToGps() :
 	ROS_INFO("[SeekToGps] PARAM use_imu: %s", use_imu_ ? "TRUE" : "FALSE");
 	ROS_INFO("[SeekToGps] PARAM yaw_turn_radians_per_sec: %7.4f", yaw_turn_radians_per_sec_);
 
-    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
+    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image");
 }
 
 // Capture the lates ConeDetector information

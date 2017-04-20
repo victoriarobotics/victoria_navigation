@@ -98,6 +98,7 @@ private:
 	ros::Subscriber odometry_sub_;
 
 	// Algorithm variables.
+	bool cone_detected_sticky_;					// Sticky bit for cone detector object_detected.
 	geometry_msgs::Quaternion previous_pose_;	// Pose from last Odometry message.
 	int recovery_retry_count_;					// Recovery attempts performed.
 	long int recovery_start_sequence_number_;	// Snapshot of count_object_detector_msgs_received_ for recovery.

@@ -32,6 +32,7 @@
 #include "victoria_perception/ObjectDetector.h"
 
 MoveToCone::MoveToCone() :
+	bumper_hit_(false),
 	count_ObjectDetector_msgs_received_(0),
 	sequential_detection_failures_(0),
 	state_(MOVE_START)
@@ -57,7 +58,7 @@ MoveToCone::MoveToCone() :
 	ROS_INFO("[MoveToCone] PARAM linear_move_meters_per_sec: %7.4f", linear_move_meters_per_sec_);
 	ROS_INFO("[MoveToCone] PARAM yaw_turn_radians_per_sec: %7.4f", yaw_turn_radians_per_sec_);
 
-    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
+    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image");
 }
 
 // Capture the lates ConeDetector information
@@ -77,6 +78,8 @@ void MoveToCone::distanceDisplacement1DCb(const victoria_sensor_msgs::DistanceDi
 // Reset global state so this behavior can be used to solve the next problem.
 void MoveToCone::resetGoal() {
 	state_ = MOVE_START;
+	bumper_hit_ = false;
+	last_object_detected_.object_detected = false;
 }
 
 StrategyFn::RESULT_T MoveToCone::tick() {
@@ -99,6 +102,7 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 	if (state_ == MOVE_START) {
 		time_last_saw_cone = ros::Time::now();
 		state_ = MOVING_TO_CENTERING_POSITION;
+		bumper_hit_ = false;
 		return RUNNING;
 	}
 
@@ -149,7 +153,8 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 
 	case MOVING_TO_CENTERING_POSITION:
 		if (equate_size_to_bumper_hit_) {
-			bumper_hit_ |= last_object_detected_.object_area > cone_area_for_bumper_hit_;
+			bumper_hit_ |= (last_object_detected_.object_detected) &&
+						   (last_object_detected_.object_area > cone_area_for_bumper_hit_);
 		}
 
 		if (bumper_hit_) {

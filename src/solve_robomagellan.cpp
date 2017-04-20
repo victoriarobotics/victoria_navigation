@@ -34,6 +34,7 @@
 
 SolveRoboMagellan::SolveRoboMagellan() :
 	index_next_point_to_seek_(0),
+	move_to_cone_recovery_count_(0),
 	state_(SETUP)
 {
 	assert(ros::param::get("~fix_topic_name", fix_topic_name_));
@@ -46,7 +47,7 @@ SolveRoboMagellan::SolveRoboMagellan() :
 
 	createGpsPointSet(waypoint_yaml_path_);
 
-    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
+    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image");
 }
 
 void SolveRoboMagellan::fixCb(const sensor_msgs::NavSatFixConstPtr& msg) {
@@ -84,6 +85,8 @@ void SolveRoboMagellan::createGpsPointSet(std::string waypoint_yaml_path) {
 		if (n["is_home"] && n["is_home"].as<bool>()) {
 			g_first_Fix_msg_.latitude = n["latitude"].as<double>();
 			g_first_Fix_msg_.longitude = n["longitude"].as<double>();
+			previous_point.latitude = g_first_Fix_msg_.latitude;
+			previous_point.longitude = g_first_Fix_msg_.longitude;
 			continue;
 		}
 
@@ -184,6 +187,14 @@ StrategyFn::RESULT_T SolveRoboMagellan::tick() {
 		result = doAdvanceToNextPoint(ss);
 		break;
 
+	case MTCR_MOVE_FROM_CONE:
+		result = doMtcrMoveFromCone(ss);
+		break;
+
+	case MTCR_DISCOVER_CONE:
+		result = doMtcrDiscoverCone(ss);
+		break;
+
 	default:
 		ROS_ERROR("SolveRoboMagellan::tick] INVALID state_ value");
 
@@ -201,7 +212,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::doMoveToGpsPoint(std::ostringstream& out
 	RESULT_T result = FATAL;
 
 	if (lastGoalResult() == SUCCESS) {
-		ROS_INFO("[SolveRoboMagellan::tick] succeeded in SeekToGps for point: %ld", index_next_point_to_seek_);
+		ROS_INFO("[SolveRoboMagellan::doMoveToGpsPoint] succeeded in SeekToGps for point: %ld", index_next_point_to_seek_);
 		out_ss << "SeekToGps successful to point: ";
 		out_ss << index_next_point_to_seek_;
 		if (!gps_points_[index_next_point_to_seek_].has_cone) {
@@ -221,8 +232,8 @@ StrategyFn::RESULT_T SolveRoboMagellan::doMoveToGpsPoint(std::ostringstream& out
 
 		result = RUNNING;
 	} else {
-		ROS_ERROR("[SolveRoboMagellan::tick] NO BACKTRACK STRATEGY FOR MOVE_TO_GPS_POINT. lastGoalResult: %d", lastGoalResult());
-        annotator_request_.request.annotation = "LL;FFFFFF;NO BT for MOVE_TO_GPS_POINT";;
+		ROS_ERROR("[SolveRoboMagellan::doMoveToGpsPoint] NO BACKTRACK STRATEGY FOR MOVE_TO_GPS_POINT. lastGoalResult: %d", lastGoalResult());
+        annotator_request_.request.annotation = "LL;0000FF;NO BT for MOVE_TO_GPS_POINT";;
         coneDetectorAnnotatorService_.call(annotator_request_);
 		result = setGoalResult(FATAL);
 	}
@@ -233,7 +244,8 @@ StrategyFn::RESULT_T SolveRoboMagellan::doMoveToGpsPoint(std::ostringstream& out
 StrategyFn::RESULT_T SolveRoboMagellan::doFindConeInCamera(std::ostringstream& out_ss) {
 	RESULT_T result = FATAL;
 	if (lastGoalResult() == SUCCESS) {
-		ROS_INFO("[SolveRoboMagellan::tick] succeeded in DiscoverCone for point: %ld", index_next_point_to_seek_);
+		ROS_INFO("[SolveRoboMagellan::doFindConeInCamera] succeeded in DiscoverCone for point: %ld", index_next_point_to_seek_);
+		move_to_cone_recovery_count_ = 0;
 		StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "");
 		state_ = MOVE_TO_CONE;
 		out_ss << "DiscoverCone successful for point: ";
@@ -244,9 +256,8 @@ StrategyFn::RESULT_T SolveRoboMagellan::doFindConeInCamera(std::ostringstream& o
         coneDetectorAnnotatorService_.call(annotator_request_);
 		result = RUNNING;
 	} else {
-		ROS_ERROR("SolveRoboMagellan::tick] NO BACKTRACKING FOR FIND_CONE_IN_CAMERA");
-
-        annotator_request_.request.annotation = "LL;FFFFFF;NO BT for FIND_CONE_IN_CAMERA";;
+		ROS_ERROR("[SolveRoboMagellan::doFindConeInCamera] NO BACKTRACKING FOR FIND_CONE_IN_CAMERA");
+        annotator_request_.request.annotation = "LL;0000FF;NO BT for FIND_CONE_IN_CAMERA";;
         coneDetectorAnnotatorService_.call(annotator_request_);
 		result = setGoalResult(FATAL);
 	}
@@ -258,21 +269,85 @@ StrategyFn::RESULT_T SolveRoboMagellan::doMoveToCone(std::ostringstream& out_ss)
 	RESULT_T result = FATAL;
 
 	if (lastGoalResult() == SUCCESS) {
-		ROS_INFO("[SolveRoboMagellan::tick] succeeded in MoveToCone for point: %ld", index_next_point_to_seek_);
+		move_to_cone_recovery_count_ = 0;
+		ROS_INFO("[SolveRoboMagellan::doMoveToCone] succeeded in MoveToCone for point: %ld", index_next_point_to_seek_);
 		StrategyFn::pushGoal(MoveFromCone::singleton().goalName(), "");
 		state_ = MOVE_FROM_CONE;
-		out_ss << "MoveToCone successful for point: ";
-		out_ss << index_next_point_to_seek_;
-		out_ss << ", moving from cone.";
+		out_ss << "MoveToCone successful for point: " << index_next_point_to_seek_ << ", moving from cone.";
 
         annotator_request_.request.annotation = "LL;FFFFFF;Touched cone, move away";;
         coneDetectorAnnotatorService_.call(annotator_request_);
 		result = RUNNING;
 	} else {
-		ROS_ERROR("SolveRoboMagellan::tick] NO BACKTRACKING FOR MOVE_TO_CONE");
+		if (move_to_cone_recovery_count_++ < 2) {
+			// Assume MoveToCone failed because it lost sight of the cone.
+			// Backup a bit, look for the cone again, and retry.
+			ROS_INFO("[SolveRoboMagellan::tick] MoveToCone failed for point: %ld, initiating recovery attempt: %d",
+					 index_next_point_to_seek_,
+					 move_to_cone_recovery_count_);
+			StrategyFn::pushGoal(MoveFromCone::singleton().goalName(), "");
+			state_ = MTCR_MOVE_FROM_CONE;
+			out_ss << "MoveToCone failed for point: " << index_next_point_to_seek_;
+			out_ss << ", initiating recovery attempt: " << move_to_cone_recovery_count_;
+	        annotator_request_.request.annotation = "LL;FFFFFF;MoveToCone failed, move away";
+	        coneDetectorAnnotatorService_.call(annotator_request_);
+			result = RUNNING;
+		} else {
+			move_to_cone_recovery_count_ = 0;
+			ROS_ERROR("[SolveRoboMagellan::doMoveToCone] No further recovery available for failed MoveToCone, moving on");
+	        annotator_request_.request.annotation = "LL;0000FF;NO MORE RECOVERY FOR MoveToCone";;
+	        coneDetectorAnnotatorService_.call(annotator_request_);
+			result = setGoalResult(SUCCESS);
+		}
+	}
 
-        annotator_request_.request.annotation = "LL;FFFFFF;NO BT for MOVE_TO_CONE";;
+	return result;
+}
+
+StrategyFn::RESULT_T SolveRoboMagellan::doMtcrMoveFromCone(std::ostringstream& out_ss) {
+	RESULT_T result = FATAL;
+
+	if (lastGoalResult() == SUCCESS) {
+		ROS_INFO("[SolveRoboMagellan::doMtcrMoveFromCone] succeeded in MoveFromCone in MTC recovery");
+		StrategyFn::pushGoal(DiscoverCone::singleton().goalName(), "");
+		state_ = MTCR_DISCOVER_CONE;
+		out_ss << "MTC recovery MoveFromCone successful for point: ";
+		out_ss << index_next_point_to_seek_;
+		out_ss << ", do DiscoverCone.";
+
+        annotator_request_.request.annotation = "LL;FFFFFF;MTCR_MOVE_FROM_CONE, do DiscoverCone";;
         coneDetectorAnnotatorService_.call(annotator_request_);
+		result = RUNNING;
+	} else {
+		// Unable to move from the cone during MoveToCone recovery.
+		ROS_ERROR("[SolveRoboMagellan::doMtcrMoveFromCone] FAILED during MoveFromCone, giving up");
+		annotator_request_.request.annotation = "LL;0000FF;NO MORE RECOVERY FOR MtcMoveFromCone";
+		coneDetectorAnnotatorService_.call(annotator_request_);
+		result = setGoalResult(FATAL);
+	}
+
+	return result;
+}
+
+StrategyFn::RESULT_T SolveRoboMagellan::doMtcrDiscoverCone(std::ostringstream& out_ss) {
+	RESULT_T result = FATAL;
+
+	if (lastGoalResult() == SUCCESS) {
+		ROS_INFO("[SolveRoboMagellan::doMtcrMoveFromCone] succeeded in DiscoverCone in MTC recovery");
+		StrategyFn::pushGoal(MoveToCone::singleton().goalName(), "");
+		state_ = MOVE_TO_CONE;;
+		out_ss << "MTC recovery MoveFromCone successful for point: ";
+		out_ss << index_next_point_to_seek_;
+		out_ss << ", retry MoveToCone.";
+
+        annotator_request_.request.annotation = "LL;FFFFFF;MTCR_MOVE_FROM_CONE, retry MoveToCone";;
+        coneDetectorAnnotatorService_.call(annotator_request_);
+		result = RUNNING;
+	} else {
+		// Unable to move from the cone during MoveToCone recovery.
+		ROS_ERROR("[SolveRoboMagellan::doMtcrMoveFromCone] FAILED during DiscoverCone, giving up");
+		annotator_request_.request.annotation = "LL;0000FF;NO MORE RECOVERY FOR MtcMoveFromCone";
+		coneDetectorAnnotatorService_.call(annotator_request_);
 		result = setGoalResult(FATAL);
 	}
 
@@ -282,7 +357,7 @@ StrategyFn::RESULT_T SolveRoboMagellan::doMoveToCone(std::ostringstream& out_ss)
 StrategyFn::RESULT_T SolveRoboMagellan::doMoveFromCone(std::ostringstream& out_ss) {
 	RESULT_T result = FATAL;
 	if (lastGoalResult() == SUCCESS) {
-		ROS_INFO("[SolveRoboMagellan::tick] succeeded in MoveFromCone for point: %ld", index_next_point_to_seek_);
+		ROS_INFO("[SolveRoboMagellan::doMoveFromCone] succeeded in MoveFromCone for point: %ld", index_next_point_to_seek_);
 		state_ = ADVANCE_TO_NEXT_POINT;
 		out_ss << "MoveFromCone successful for point: ";
 		out_ss << index_next_point_to_seek_;
@@ -293,9 +368,8 @@ StrategyFn::RESULT_T SolveRoboMagellan::doMoveFromCone(std::ostringstream& out_s
         coneDetectorAnnotatorService_.call(annotator_request_);
 		result = RUNNING;
 	} else {
-		ROS_ERROR("SolveRoboMagellan::tick] NO BACKTRACKING FOR MOVE_FROM_CONE");
-
-        annotator_request_.request.annotation = "LL;FFFFFF;NO BT for MOVE_FROM_CONE";;
+		ROS_ERROR("[SolveRoboMagellan::doMoveFromCone] NO BACKTRACKING FOR MOVE_FROM_CONE");
+        annotator_request_.request.annotation = "LL;00FFFF;NO BT for MOVE_FROM_CONE";;
         coneDetectorAnnotatorService_.call(annotator_request_);
 		result = setGoalResult(FATAL);
 	}

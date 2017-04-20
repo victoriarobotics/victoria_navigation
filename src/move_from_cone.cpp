@@ -39,7 +39,7 @@ MoveFromCone::MoveFromCone() :
 
 	ROS_INFO("[MoveFromCone] PARAM cmd_vel_topic_name: %s", cmd_vel_topic_name_.c_str());
 
-    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image", true);
+    coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image");
 }
 
 // Reset global state so this behavior can be used to solve the next problem.
