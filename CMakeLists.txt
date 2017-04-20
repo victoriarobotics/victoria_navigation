@@ -20,6 +20,8 @@ find_package(catkin REQUIRED
 	victoria_perception
 )
 
+find_package( OpenCV REQUIRED )
+
 # Resolve system dependency on yaml-cpp, which apparently does not
 # provide a CMake find_package() module.
 find_package(PkgConfig REQUIRED)
@@ -59,6 +61,7 @@ catkin_package(
 
 include_directories(
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
   include
 )
 
@@ -81,6 +84,7 @@ add_dependencies (
 target_link_libraries(
   robo_magellan_node
   ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
   yaml-cpp
 )
 
