@@ -1,0 +1,11 @@
+gps_points:
+# By tree near entry 3
+#    - { latitude: 37.535841, longitude: -122.061968, has_cone: false}
+# Corner near dumpster
+    - { latitude: 37.536104, longitude: -122.061802, has_cone: false}
+# First lane north entry
+    - { latitude: 37.5361861667, longitude: -122.0620045, has_cone: true}
+    # First lane south entry
+#37.535660, -122.062345
+# Zeroth lane south entry
+#37.535591, -122.062143
