@@ -116,23 +116,13 @@ double SeekToGps::odomHeading(double x1, double y1, double x2, double y2) {
     return theta;
 }
 
-StrategyFn::RESULT_T SeekToGps::tick() {
-	bool						force_report = false; 	// Force status report.
-	geometry_msgs::Twist		cmd_vel;				// For sending movement commands to the robot.
-	RESULT_T 					result = FATAL;			// Assume fatality in the algorithm.
-	std::ostringstream 				ss;					// For sending informations messages.
-
-	if (StrategyFn::currentGoalName() != goalName()) {
-		// This is not a problem the behavior can solve.
-		return INACTIVE;
-	}
-
+bool SeekToGps::checkPreconditions() {
 	if (count_object_detector_msgs_received_ <= 0) {
 		// Wait until ConeDetector messages are received.
 		ROS_INFO("[SeekToGps::tick] waiting ObjectDetector messages");
 	    annotator_request_.request.annotation = "UL;FFFFFF;STG Cone wait";
 	    coneDetectorAnnotatorService_.call(annotator_request_);
-		return RUNNING;
+		return false;
 	}
 
 	if (count_odometry_msgs_received_ <= 0) {
@@ -140,7 +130,7 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 		ROS_INFO("[SeekToGps::tick] waiting Odometry messages");
 	    annotator_request_.request.annotation = "UL;FFFFFF;STG Odom wait";
 	    coneDetectorAnnotatorService_.call(annotator_request_);
-		return RUNNING;
+		return false;
 	}
 
 	if (count_fix_msgs_received_ <= 0) {
@@ -148,7 +138,7 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 		ROS_INFO("[SeekToGps::tick] waiting Fix messages");
 	    annotator_request_.request.annotation = "UL;FFFFFF;STG Fix wait";
 	    coneDetectorAnnotatorService_.call(annotator_request_);
-		return RUNNING;
+		return false;
 	}
 
 	if (count_imu_msgs_received_ <= 0) {
@@ -156,57 +146,87 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 		ROS_INFO("[SeekToGps::tick] waiting Imu messages");
 	    annotator_request_.request.annotation = "UL;FFFFFF;STG Imu wait";
 	    coneDetectorAnnotatorService_.call(annotator_request_);
-		return RUNNING;
+		return false;
 	}
 
-	const GPS_POINT& waypoint = currentGpsPoint();	// Get the goal waypoint.
-	ss << "pt: " << waypoint.point_number << " ";
+	return true;
+}
+
+SeekToGps::WAYPOINT_STATS SeekToGps::computeWaypointStats() {
+	WAYPOINT_STATS result;
 
 	// Convert the goal waypoint into a NavSatFix format.
+	const GPS_POINT& waypoint = currentGpsPoint();	// Get the goal waypoint.
 	sensor_msgs::NavSatFix waypoint_as_nav_sat_fix;
 	waypoint_as_nav_sat_fix.latitude = waypoint.latitude;
 	waypoint_as_nav_sat_fix.longitude = waypoint.longitude;
 
 	// Compute the heading and distance from the current position to the goal waypoint.
-	double robot_to_waypoint_heading;
 	if (solve_using_odom_) {
-		robot_to_waypoint_heading = odomHeading(last_odometry_msg_.pose.pose.position.x, last_odometry_msg_.pose.pose.position.y,
-												waypoint.x, waypoint.y);
+		result.robot_to_waypoint_heading = odomHeading(last_odometry_msg_.pose.pose.position.x, 
+													   last_odometry_msg_.pose.pose.position.y,
+													   waypoint.x,
+													   waypoint.y);
 	} else {
 		// GPS calculatio results in GPS degreess, which is 90 degrees off from the ROS framework.
-		robot_to_waypoint_heading = angles::normalize_angle((M_PI / 2.0) - headingInGpsCoordinates(last_fix_msg_, waypoint_as_nav_sat_fix));
+		result.robot_to_waypoint_heading = 
+			angles::normalize_angle((M_PI / 2.0) - 
+								    headingInGpsCoordinates(last_fix_msg_, waypoint_as_nav_sat_fix));
 	}
 
-	double robot_to_waypoint_distance;
 	if (solve_using_odom_) {
-		robot_to_waypoint_distance = sqrt(((last_odometry_msg_.pose.pose.position.x - waypoint.x) * (last_odometry_msg_.pose.pose.position.x - waypoint.x)) +
-							  ((last_odometry_msg_.pose.pose.position.y - waypoint.y) * (last_odometry_msg_.pose.pose.position.y - waypoint.y)));
+		result.robot_to_waypoint_distance = 
+			sqrt(((last_odometry_msg_.pose.pose.position.x - waypoint.x) * 
+				  (last_odometry_msg_.pose.pose.position.x - waypoint.x)) +
+				 ((last_odometry_msg_.pose.pose.position.y - waypoint.y) * 
+				  (last_odometry_msg_.pose.pose.position.y - waypoint.y)));
 	} else {
-		robot_to_waypoint_distance = greatCircleDistance(last_fix_msg_, waypoint_as_nav_sat_fix);
+		result.robot_to_waypoint_distance = greatCircleDistance(last_fix_msg_, waypoint_as_nav_sat_fix);
 	}
 
 	// Compute the heading the robot needs to be pointing.
-	double heading_to_waypoint_delta = 0; // How far off is the current heading from the desired heading?
-	double robot_true_heading = 0;  // Current heading corrected, if necessary, by magnetic declination.
-
 	if (use_imu_) {
 		// Use the Imu as truth for the current robot heading.
 		tf::Quaternion imu_orientation;
 		tf::quaternionMsgToTF(last_imu_msg_.orientation, imu_orientation);
 		double imu_yaw = tf::getYaw(imu_orientation);
-		robot_true_heading = imu_yaw + angles::from_degrees(magnetic_declination_);
+		result.robot_true_heading = imu_yaw + angles::from_degrees(magnetic_declination_);
 	} else {
 		// Use the Odometry as truth for the current robot heading.
 		tf::Quaternion odom_orientation;
 		tf::quaternionMsgToTF(last_odometry_msg_.pose.pose.orientation, odom_orientation);
-		robot_true_heading = tf::getYaw(odom_orientation);
+		result.robot_true_heading = tf::getYaw(odom_orientation);
 	}
 
-	heading_to_waypoint_delta = angles::shortest_angular_distance(robot_true_heading, robot_to_waypoint_heading);  // How far off is the current heading?
+	// How far off is the current heading?
+	result.heading_to_waypoint_delta = 
+		angles::shortest_angular_distance(result.robot_true_heading, 
+										  result.robot_to_waypoint_heading);
+
+	return result;
+}
+
+StrategyFn::RESULT_T SeekToGps::tick() {
+	bool						force_report = false; 	// Force status report.
+	geometry_msgs::Twist		cmd_vel;				// For sending movement commands to the robot.
+	RESULT_T 					result = FATAL;			// Assume fatality in the algorithm.
+	std::ostringstream 			ss;						// For sending informations messages.
+
+	if (StrategyFn::currentGoalName() != goalName()) {
+		// This is not a problem the behavior can solve.
+		return INACTIVE;
+	}
+
+	if (!checkPreconditions()) return RUNNING;
+
+	const GPS_POINT& waypoint = currentGpsPoint();	// Get the goal waypoint.
+	ss << "pt: " << waypoint.point_number << " ";
+
+	WAYPOINT_STATS waypoint_stats = computeWaypointStats();
 
 	if (waypoint.has_cone &&
 		last_object_detector_msg_.object_detected &&
-		(robot_to_waypoint_distance <= ignore_cone_until_within_meters_)) {
+		(waypoint_stats.robot_to_waypoint_distance <= ignore_cone_until_within_meters_)) {
 		// Success! Stop when a RoboMagellan cone is seen.
 		resetGoal();
 		
@@ -231,13 +251,13 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 	char msg[256];
 	sprintf(msg, "%s head: % #6.1f, goal head: % #6.1f, dist: % #5.1f",
 			use_imu_ ? "IMU" : "ODOM",
-			angles::to_degrees(robot_true_heading),
-			angles::to_degrees(robot_to_waypoint_heading),
-			robot_to_waypoint_distance);
+			angles::to_degrees(waypoint_stats.robot_true_heading),
+			angles::to_degrees(waypoint_stats.robot_to_waypoint_heading),
+			waypoint_stats.robot_to_waypoint_distance);
 	ss << msg;
 
 	// Is the robot "close enough"?
-	if (robot_to_waypoint_distance < gps_close_distance_meters_) {
+	if (waypoint_stats.robot_to_waypoint_distance < gps_close_distance_meters_) {
 		// Close enough.
 		resetGoal();	// Reset the global state so the behavior can be used for another problem.
 
@@ -256,8 +276,8 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 	// Update the dashboard annotation.
 	sprintf(msg, "UL;FFFFFF;STG pt %d head: %3.1f dist %3.1f",
 			waypoint.point_number,
-			angles::to_degrees(robot_to_waypoint_heading),
-			robot_to_waypoint_distance);
+			angles::to_degrees(waypoint_stats.robot_to_waypoint_heading),
+			waypoint_stats.robot_to_waypoint_distance);
     annotator_request_.request.annotation = msg;
     coneDetectorAnnotatorService_.call(annotator_request_);
 
@@ -265,59 +285,10 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 	switch (state_) {
 	case SETUP:
 		// The first time through, just gather data.
-		// Set up so that the next time through, the robot is rotated to point to the goal waypoint.
-		ss << ". Setting up";
-		if (solve_using_odom_) {
-			ss << ", TO x: " << std::setprecision(3) << waypoint.x
-		       << ", y: " << std::setprecision(3) << waypoint.y;
-	    } else {
-		   ss << ", TO lat: " << std::setprecision(11) << waypoint.latitude
-		      << ", lon: " << std::setprecision(11) << waypoint.longitude
-		      << ", GPS head: " << std::setprecision(4) << waypoint.bearing;
-        }
-
-        ss << ", distance: " << std::setprecision(4) << robot_to_waypoint_distance;
-        ss << ", heading: " << std::setprecision(4) << robot_to_waypoint_heading;
-		ss << ", has_cone: " << (waypoint.has_cone ? "T" : "F");
-		state_ = ROTATING_TO_HEADING;
-		result = RUNNING;
-		force_report = true;	// Make sure this status gets reported.
-		break;
-
-	case ROTATING_TO_HEADING:
-		// The robot may not be pointing towards the goal waypoint. If not, rotate it a bit so it is closer to the right heading.
-		if (fabs(heading_to_waypoint_delta) < angles::from_degrees(heading_to_waypoint_degrees_delta_threshold_)) {
-			// Close enough to desired heading. Just move.
-			state_ = SEEKING_POINT;
-			result = RUNNING;
-		} else {
-			// Need to rotate towards the goal heading.
-			// Just rotate a bit each time the behavior is invoked.
-			cmd_vel.linear.x = linear_move_meters_per_sec_ / 2.0;
-			cmd_vel.angular.z = heading_to_waypoint_delta > 0 ? yaw_turn_radians_per_sec_ : -yaw_turn_radians_per_sec_;
-			cmd_vel_pub_.publish(cmd_vel);
-			result = RUNNING;
-		}
-
-		break;
+		return doSetup(ss, waypoint_stats);
 
 	case SEEKING_POINT:
-		// The robot is heading in the right direction and isn't close enough yet.
-		// Move the robot forward a bit each time the behavior is invoked. 
-		if (fabs(heading_to_waypoint_delta) >= angles::from_degrees(heading_to_waypoint_degrees_delta_threshold_)) {
-			// Now the robot heading is too far from the desired heading.
-			// Change the state so the state machine will try to correct the heading.
-			state_ = ROTATING_TO_HEADING;
-			result = RUNNING;
-		} else {
-			// Move forward in a straight line.
-			cmd_vel.linear.x = linear_move_meters_per_sec_;
-			cmd_vel.angular.z = 0;
-			cmd_vel_pub_.publish(cmd_vel);
-			result = RUNNING;
-		}
-
-		break;
+		return doSeekingPoint(ss, waypoint_stats);
 
 	default:
 		ss << ". INVALID STATE";
@@ -326,6 +297,45 @@ StrategyFn::RESULT_T SeekToGps::tick() {
 
 	publishStrategyProgress("SeekToGps::tick", ss.str(), force_report);
 	return result;
+}
+
+StrategyFn::RESULT_T SeekToGps::doSetup(std::ostringstream& out_ss, WAYPOINT_STATS& waypoint_stats) {
+	// Set up so that the next time through, the robot is rotated to point to the goal waypoint.
+	const GPS_POINT& waypoint = currentGpsPoint();	// Get the goal waypoint.
+	out_ss << ". Setting up";
+	if (solve_using_odom_) {
+		out_ss << ", TO x: " << std::setprecision(3) << waypoint.x
+	       << ", y: " << std::setprecision(3) << waypoint.y;
+    } else {
+	   out_ss << ", TO lat: " << std::setprecision(11) << waypoint.latitude
+	      << ", lon: " << std::setprecision(11) << waypoint.longitude
+	      << ", GPS head: " << std::setprecision(4) << waypoint.bearing;
+    }
+
+	out_ss << ", has_cone: " << (waypoint.has_cone ? "T" : "F");
+	publishStrategyProgress("SeekToGps::tick", out_ss.str(), true);
+	state_ = SEEKING_POINT;
+	return RUNNING;
+}
+
+StrategyFn::RESULT_T SeekToGps::doSeekingPoint(std::ostringstream& out_ss, WAYPOINT_STATS& waypoint_stats) {
+	// Move with a z correction that should point us straight in one second.
+	// If the error in the heading is too great, however, slow down the forward movement.
+	geometry_msgs::Twist		cmd_vel;	// For sending movement commands to the robot.
+
+	char msg[256];
+	sprintf(msg, "%s head: % #6.1f, goal head: % #6.1f, dist: % #5.1f",
+			use_imu_ ? "IMU" : "ODOM",
+			angles::to_degrees(waypoint_stats.robot_true_heading),
+			angles::to_degrees(waypoint_stats.robot_to_waypoint_heading),
+			waypoint_stats.robot_to_waypoint_distance);
+	out_ss << msg;
+
+	cmd_vel.linear.x = linear_move_meters_per_sec_ * (fabs(waypoint_stats.heading_to_waypoint_delta) > (M_PI / 4)) ? 0.5 : 1.0;
+	cmd_vel.angular.z = waypoint_stats.heading_to_waypoint_delta;
+	cmd_vel_pub_.publish(cmd_vel);
+	publishStrategyProgress("SeekToGps::tick", out_ss.str(), false);
+	return RUNNING;
 }
 
 StrategyFn& SeekToGps::singleton() {
