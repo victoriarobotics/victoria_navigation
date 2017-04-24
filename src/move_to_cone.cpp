@@ -82,14 +82,6 @@ void MoveToCone::distanceDisplacement1DCb(const victoria_sensor_msgs::DistanceDi
 	}
 }
 
-void MoveToCone::distanceDisplacement1DCb(const victoria_sensor_msgs::DistanceDisplacement1DConstPtr& msg) {
-	if (msg->displacement > ((msg->max_value + msg->min_value) / 2.0)) {
-		bumper_hit_ = true;
-	} else {
-		bumper_hit_ = false;
-	}
-}
-
 // Reset global state so this behavior can be used to solve the next problem.
 void MoveToCone::resetGoal() {
 	state_ = MOVE_START;
