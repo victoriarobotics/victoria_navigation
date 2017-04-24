@@ -33,7 +33,7 @@
 #include "victoria_perception/AnnotateDetectorImage.h"
 #include "victoria_perception/ObjectDetector.h"
 
-//* A SeekToGps class.
+//* A MoveToCone class.
 /**
 * A problem solver that attempts to move to a RoboMagellan cone.
 *
