@@ -13,6 +13,7 @@
 	<arg name="distance_displacement_1d_topic_name" default="/distance_displacement_1d" doc = "Topic name for DistanceDisplacement1D message" />
 	<arg name="do_debug_strategy" default="true" doc="Enable info traces related to strategy code" />
 	<arg name="equate_size_to_bumper_hit" default="false" doc="True =&gt; cone size &gt;= xxx is equivalent to a bumper hit" />
+	<arg name="field_of_view_degrees" default="68.5" doc="Horizontal field of view for camera" />
 	<arg name="fix_topic_name" default="/fix" doc="fix topic name" />
 	<arg name="gps_close_distance_meters" default="2.0" doc="How close to get to a point using GPS to be considered 'close enough'" />
 	<arg name="ignore_cone_until_within_meters" default="4.0" doc="Ignore the cone detector until within this distance of the goal point" />
@@ -35,6 +36,7 @@
 	    <param name="distance_displacement_1d_topic_name" value="$(arg distance_displacement_1d_topic_name)" />
 	    <param name="equate_size_to_bumper_hit" value="$(arg equate_size_to_bumper_hit)" />
 	  	<param name="do_debug_strategy" value="$(arg do_debug_strategy)" />
+	  	<param name="field_of_view_degrees" value="$(arg field_of_view_degrees)" />
 	  	<param name="fix_topic_name" value="$(arg fix_topic_name)" />
 	  	<param name="gps_close_distance_meters" value="$(arg gps_close_distance_meters)" />
 	  	<param name="ignore_cone_until_within_meters" value="$(arg ignore_cone_until_within_meters)" />

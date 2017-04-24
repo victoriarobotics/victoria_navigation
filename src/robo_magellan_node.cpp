@@ -121,7 +121,7 @@ bool pushGoalCb(victoria_navigation::PushGoal::Request &request,
     void doStrategy(std::vector<StrategyFn*>& behaviors, ros::Publisher& strategyStatusPublisher, ros::ServiceClient annotatorService) {
     actionlib_msgs::GoalStatus goalStatus;
     StrategyFn::RESULT_T result = StrategyFn::FATAL;
-    ros::Rate rate(20); // Loop rate
+    ros::Rate rate(30); // Loop rate
 
     while (ros::ok()) {
         rate.sleep();
