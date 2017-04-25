@@ -22,6 +22,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <angles/angles.h>
 #include <cassert>
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
@@ -42,6 +43,7 @@ MoveToCone::MoveToCone() :
 	assert(ros::param::get("~cone_detector_topic_name", cone_detector_topic_name_));
 	assert(ros::param::get("~distance_displacement_1d_topic_name", distance_displacement_1d_topic_name_));
 	assert(ros::param::get("~equate_size_to_bumper_hit", equate_size_to_bumper_hit_));
+	assert(ros::param::get("~field_of_view_degrees", field_of_view_degrees_));
 	assert(ros::param::get("~linear_move_meters_per_sec", linear_move_meters_per_sec_));
 	assert(ros::param::get("~yaw_turn_radians_per_sec", yaw_turn_radians_per_sec_));
 	
@@ -65,6 +67,11 @@ MoveToCone::MoveToCone() :
 void MoveToCone::coneDetectorCb(const victoria_perception::ObjectDetectorConstPtr& msg) {
 	last_object_detected_ = *msg;
 	count_ObjectDetector_msgs_received_++;
+	if (!last_object_detected_.object_detected) {
+		sequential_detection_failures_++;
+	} else {
+		sequential_detection_failures_ == 0;
+	}
 }
 
 void MoveToCone::distanceDisplacement1DCb(const victoria_sensor_msgs::DistanceDisplacement1DConstPtr& msg) {
@@ -108,10 +115,9 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 
 	if (!last_object_detected_.object_detected) {
 		// Failure, lost sight of the cone.
-		sequential_detection_failures_++;	// Not currently used but maybe used in diagnostics or recovery later.
 		ros::Time now = ros::Time::now();
 		ros::Duration duration_since_last_saw_cone = now - time_last_saw_cone;
-		if (duration_since_last_saw_cone.toSec() > 5) {
+		if (duration_since_last_saw_cone.toSec() > 2) {
 			resetGoal();
 
 			cmd_vel.linear.x = 0;	// Stop motion.
@@ -137,7 +143,6 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			return RUNNING;
 		}
 	} else {
-		sequential_detection_failures_ = 0;
 		time_last_saw_cone = ros::Time::now();
 	}
 
@@ -173,41 +178,27 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 	
 		image_width = last_object_detected_.image_width;
 		object_x = last_object_detected_.object_x;
-		if (abs((image_width / 2) - object_x) < (image_width / 40)) {
-			// Heading generally in the right direction.
+		if (last_object_detected_.image_width > 0) {
 			cmd_vel.linear.x = linear_move_meters_per_sec_;
-			cmd_vel.angular.z = 0;
+			double degrees_per_pixel = field_of_view_degrees_ / image_width;
+			double cone_pixel_from_center = (image_width / 2.0) - last_object_detected_.object_x; // Right of center is negative.
+			cmd_vel.angular.z = angles::from_degrees(cone_pixel_from_center *  degrees_per_pixel);
 			cmd_vel_pub_.publish(cmd_vel);
-			ss << "Go straight, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
+			ss << "Turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
 			ss << ", area: " << last_object_detected_.object_area;
-		    annotator_request_.request.annotation = "UL;FFFFFF;MTC Move straight";
+		    annotator_request_.request.annotation = "UL;FFFFFF;MTC Correct yaw";
 		    coneDetectorAnnotatorService_.call(annotator_request_);
 		} else {
-			// Turn towards cone.
-			if (last_object_detected_.image_width > 0) {
-				cmd_vel.linear.x = linear_move_meters_per_sec_ / 2.0;
-				cmd_vel.angular.z = ((image_width / 2.0) - last_object_detected_.object_x) > 0 ? yaw_turn_radians_per_sec_ : -yaw_turn_radians_per_sec_;
-				cmd_vel_pub_.publish(cmd_vel);
-				ss << "Turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
-				ss << ", area: " << last_object_detected_.object_area;
-			    annotator_request_.request.annotation = "UL;FFFFFF;MTC Correct yaw";
-			    coneDetectorAnnotatorService_.call(annotator_request_);
-			} else {
-				cmd_vel.linear.x = 0.0;
-				cmd_vel.angular.z = 0.0;
-				cmd_vel_pub_.publish(cmd_vel);
-				ss << "FAULT! image.width <= 0, stopping";
-			    annotator_request_.request.annotation = "UL;FFFFFF;MTC Lost cone";
-			    coneDetectorAnnotatorService_.call(annotator_request_);
-			}			
-		}
+			cmd_vel.linear.x = 0.0;
+			cmd_vel.angular.z = 0.0;
+			cmd_vel_pub_.publish(cmd_vel);
+			ss << "FAULT! image.width <= 0, stopping";
+		    annotator_request_.request.annotation = "UL;FFFFFF;MTC Lost cone";
+		    coneDetectorAnnotatorService_.call(annotator_request_);
+		}			
 
 		result = RUNNING;
 		break;
-
-	case MOVING_TO_TOUCH: //#####
-		ss << "FATAL: Unimplemented state MOVING_TO_TOUCH";
-		return setGoalResult(FATAL);
 
 	default:
 		ss << "FATAL: invalid state";

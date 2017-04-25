@@ -116,7 +116,7 @@ private:
 	ClusterStatistics computeLikelyConeParameters(const std::vector<ClusterStatistics>& clusters);
 
 	/*! \brief Computer a set of likely-good cone detector parameters for the current video stream. */
-	ClusterStatistics findNewConeDetectorParameters();
+	ClusterStatistics findNewConeDetectorParameters(); 
 
 	/*! \brief Get the current A-filter values from the cone detector. */
 	ClusterStatistics getCurrentAFilter();
@@ -125,7 +125,7 @@ private:
 	void setCurrentAFilter(ClusterStatistics values);
 
 	/*! \brief attempt to adjust the cone detector parameters to find a cone in the image. */
-	bool canFindCone();
+	void setNewConeDetectorParams();
 
 	// Process one ConeDetector topic message.
 	long int count_object_detector_msgs_received_;

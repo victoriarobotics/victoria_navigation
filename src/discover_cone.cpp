@@ -305,15 +305,14 @@ DiscoverCone::ClusterStatistics DiscoverCone::findNewConeDetectorParameters() {
 	}
 }
 
-bool DiscoverCone::canFindCone() {
+void DiscoverCone::setNewConeDetectorParams() {
 	ClusterStatistics new_parameters = findNewConeDetectorParameters();
 	if ((new_parameters.min_hue == 0) || (new_parameters.max_hue == 149)) {
 		// Unsuccessful.
-		ROS_INFO("[DiscoverCone::canFindCone] failed");
-		return false;
+		ROS_INFO("[DiscoverCone::setNewConeDetectorParams] failed");
 	} else {
 		ClusterStatistics old_parameters = getCurrentAFilter();
-		ROS_INFO("[DiscoverCone::canFindCone] previous A-filter min_hue: %d, max_hue: %d, min_saturation: %d, max_saturation: %d, min_value: %d, max_value: %d",
+		ROS_INFO("[DiscoverCone::setNewConeDetectorParams] previous A-filter min_hue: %d, max_hue: %d, min_saturation: %d, max_saturation: %d, min_value: %d, max_value: %d",
 				 old_parameters.min_hue, 
 				 old_parameters.max_hue,
 				 old_parameters.min_saturation,
@@ -321,14 +320,13 @@ bool DiscoverCone::canFindCone() {
 				 old_parameters.min_value,
 				 old_parameters.max_value);
 		setCurrentAFilter(new_parameters);
-		ROS_INFO("[DiscoverCone::canFindCone] new A-filter min_hue: %d, max_hue: %d, min_saturation: %d, max_saturation: %d, min_value: %d, max_value: %d",
+		ROS_INFO("[DiscoverCone::setNewConeDetectorParams] new A-filter min_hue: %d, max_hue: %d, min_saturation: %d, max_saturation: %d, min_value: %d, max_value: %d",
 				 new_parameters.min_hue, 
 				 new_parameters.max_hue,
 				 new_parameters.min_saturation,
 				 new_parameters.max_saturation,
 				 new_parameters.min_value,
 				 new_parameters.max_value);
-		return true;
 	}
 }
 
@@ -366,6 +364,7 @@ StrategyFn::RESULT_T DiscoverCone::tick() {
 	switch (state_) {
 	case CAPTURE_STATE:
 		result = doCaptureState(ss);
+		state_ = ROTATING_TO_DISCOVER;
 		break;
 
 	case ROTATING_TO_DISCOVER:
@@ -412,7 +411,6 @@ StrategyFn::RESULT_T DiscoverCone::doCaptureState(std::ostringstream& out_ss) {
 	previous_pose_ = last_odometry_msg_.pose.pose.orientation;
 	starting_yaw_ = tf::getYaw(starting_odometry_msg_.pose.pose.orientation);
 	total_rotated_yaw_ = 0;
-	state_ = ROTATING_TO_DISCOVER;	// We have a starting orientation, go to the begin-rotation strategy.
 	out_ss << " Got Odometry, begin rotation";
 	recovery_retry_count_ = 0;
 	return RUNNING;
@@ -447,18 +445,17 @@ StrategyFn::RESULT_T DiscoverCone::doRotatingToDiscover(std::ostringstream& out_
 			recovery_retry_count_++;
 		    annotator_request_.request.annotation = "UL;FFFFFF;DC RECOVERY";
 		    coneDetectorAnnotatorService_.call(annotator_request_);
-		    if (canFindCone()) {
-		    	// Reset data for another rotation
-		    	doCaptureState(out_ss);
+		    setNewConeDetectorParams();
 
-				// Capture current cone detector message sequence number.
-				recovery_start_sequence_number_ = count_object_detector_msgs_received_;
-		    	state_ = RECOVER_WAIT_NEXT_CONE_DETECTOR_MESSAGE;	// See if that helped.
-		    	cone_detected_sticky_ = false; // Start looking for object now.
-		    	result = RUNNING;
-		    } else {
-				result = failGoal();
-		    }
+	    	// Reset data for another rotation
+	    	doCaptureState(out_ss);
+
+			// Capture current cone detector message sequence number.
+			recovery_start_sequence_number_ = count_object_detector_msgs_received_;
+	    	state_ = RECOVER_WAIT_NEXT_CONE_DETECTOR_MESSAGE;
+	    	total_rotated_yaw_ = 0;
+	    	cone_detected_sticky_ = false; // Start looking for object now.
+	    	result = RUNNING;
 		}
 	} else {
 		// Haven't completed a full rotation yet, keep rotating.
@@ -496,7 +493,7 @@ StrategyFn::RESULT_T DiscoverCone::doRecoverWaitNextConeDetectionMessage(std::os
 		// Haven't completed a full rotation yet, keep rotating.
 		geometry_msgs::Twist	cmd_vel;		// For sending movement commands to the robot.
 
-		canFindCone();
+		setNewConeDetectorParams();
 		recovery_start_sequence_number_ = count_object_detector_msgs_received_;
 		cmd_vel.linear.x = 0;
 		cmd_vel.angular.z = yaw_turn_radians_per_sec_ / 2.0;
