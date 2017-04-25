@@ -183,7 +183,6 @@ StrategyFn::RESULT_T MoveToCone::tick() {
 			double degrees_per_pixel = field_of_view_degrees_ / image_width;
 			double cone_pixel_from_center = (image_width / 2.0) - last_object_detected_.object_x; // Right of center is negative.
 			cmd_vel.angular.z = angles::from_degrees(cone_pixel_from_center *  degrees_per_pixel);
-			//cmd_vel.angular.z = ((image_width / 2.0) - last_object_detected_.object_x) > 0 ? yaw_turn_radians_per_sec_ : -yaw_turn_radians_per_sec_;
 			cmd_vel_pub_.publish(cmd_vel);
 			ss << "Turn, linear.x: " << cmd_vel.linear.x << ", angular.z: " << cmd_vel.angular.z;
 			ss << ", area: " << last_object_detected_.object_area;
