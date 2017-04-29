@@ -1,0 +1,10 @@
+gps_points:
+    - { latitude: 37.659965, longitude: -121.887373, has_cone: false, is_home: true} # Start
+    - { latitude: 37.659983, longitude: -121.887137, has_cone: false} # mid grass
+    - { latitude: 37.660007, longitude: -121.887059, has_cone: true} # cone 1
+    - { latitude: 37.659926, longitude: -121.886952, has_cone: false} # front grass
+    - { latitude: 37.659811, longitude: -121.886917, has_cone: false} # front asphault
+    - { latitude: 37.659665, longitude: -121.886965, has_cone: true} # cone 3
+    - { latitude: 37.659763, longitude: -121.886831, has_cone: false} # corner
+    - { latitude: 37.659794, longitude: -121.886598, has_cone: false} # perp to goal
+    - { latitude: 37.659698, longitude: -121.886591, has_cone: true}  # goal

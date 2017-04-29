@@ -18,13 +18,13 @@
 	<arg name="ignore_cone_until_within_meters" default="4.0" doc="Ignore the cone detector until within this distance of the goal point" />
 	<arg name="image_topic_name" default="/camera/color/image_raw" doc="camera topic name" />
     <arg name="imu_topic_name" default="/imu/data" doc="IMU topic name" />
-	<arg name="linear_move_meters_per_sec" default="0.7" doc="Rate to move forward in meters/second" />
+	<arg name="linear_move_meters_per_sec" default="1.5" doc="Rate to move forward in meters/second" />
 	<arg name="magnetic_declination" default="13.42" doc="Magnetic declination adjustment for IMU reading" />
 	<arg name="odometry_topic_name" default="/odom" doc="odometry topic name" />
 	<arg name="solve_using_odom" default="false" doc="true =&gt; compute distance using Odometry, not GPS" />
 	<arg name="use_imu" default="true" doc="true =&gt; use the IMU instead of Odometry as true robot heading" />
 	<arg name="waypoint_yaml_path" default="$(find victoria_navigation)/config/wimble_patio_waypoints.yaml" doc="path to yaml file containing waypoints" />
-	<arg name="yaw_turn_radians_per_sec" default="0.4" doc="Rate to make yaw moves in radians per second" />
+	<arg name="yaw_turn_radians_per_sec" default="0.7" doc="Rate to make yaw moves in radians per second" />
 	<!-- END victoria_navigation parameters -->
 	
   	<node pkg="victoria_navigation" name="robo_magellan_node" type="robo_magellan_node" respawn="false" output="screen" launch-prefix="$(arg launchPrefix)" >
