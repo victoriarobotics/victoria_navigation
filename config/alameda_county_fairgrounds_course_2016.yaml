@@ -1,0 +1,9 @@
+gps_points:
+    - { latitude: 37.659915, longitude: -121.887503, has_cone: false, is_home: true}
+    - { latitude: 37.659873, longitude: -121.887632, has_cone: false}
+    - { latitude: 37.659748, longitude: -121.887629, has_cone: false}
+    - { latitude: 37.659745, longitude: -121.887320, has_cone: false}
+    - { latitude: 37.659763, longitude: -121.886831, has_cone: false}
+    - { latitude: 37.659911, longitude: -121.886647, has_cone: false}
+    - { latitude: 37.659969, longitude: -121.886520, has_cone: false}
+    - { latitude: 37.660051, longitude: -121.886498, has_cone: true}

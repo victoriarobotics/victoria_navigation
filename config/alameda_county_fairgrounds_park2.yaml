@@ -1,0 +1,6 @@
+gps_points:
+    - { latitude: 37.659696, longitude: -121.884900, has_cone: false, is_home: true} # SE corner
+    - { latitude: 37.659802, longitude: -121.884690, has_cone: false} # between second and third tree
+    - { latitude: 37.659895, longitude: -121.884567, has_cone: true} # tree corner
+    - { latitude: 37.659741, longitude: -121.884480, has_cone: false} # NE tree 
+    - { latitude: 37.659631, longitude: -121.884539, has_cone: true} # SE corner 

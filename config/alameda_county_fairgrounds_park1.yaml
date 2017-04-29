@@ -1,0 +1,5 @@
+gps_points:
+    - { latitude: 37.659656, longitude: -121.884801, has_cone: false, is_home: true} # SE corner
+    - { latitude: 37.659743, longitude: -121.884800, has_cone: false} # SW corner
+    - { latitude: 37.659749, longitude: -121.884592, has_cone: false } # NW corner
+    - { latitude: 37.659658, longitude: -121.884593, has_cone: true } # NE corner
