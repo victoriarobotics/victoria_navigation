@@ -10,7 +10,7 @@
 	<arg name="cmd_vel_topic_name" default="/cmd_vel" doc="cmd_vel topic name" />
 	<arg name="cone_area_for_bumper_hit" default="20000" doc="If equate_size_to_bumper_hit, then a cone area &gt;= this is considered a bumper_hit" />
 	<arg name="cone_detector_topic_name" default="/cone_detector" doc="cone_detector topic name" />
-	<arg name="distance_displacement_1d_topic_name" default="/distance_displacement_1d" doc = "Topic name for DistanceDisplacement1D message" />
+	<arg name="distance_displacement_1d_topic_name" default="/bumper_left" doc = "Topic name for DistanceDisplacement1D message" />
 	<arg name="do_debug_strategy" default="true" doc="Enable info traces related to strategy code" />
 	<arg name="equate_size_to_bumper_hit" default="false" doc="True =&gt; cone size &gt;= xxx is equivalent to a bumper hit" />
 	<arg name="field_of_view_degrees" default="68.5" doc="Horizontal field of view for camera" />
@@ -18,14 +18,14 @@
 	<arg name="gps_close_distance_meters" default="2.0" doc="How close to get to a point using GPS to be considered 'close enough'" />
 	<arg name="ignore_cone_until_within_meters" default="4.0" doc="Ignore the cone detector until within this distance of the goal point" />
 	<arg name="image_topic_name" default="/camera/color/image_raw" doc="camera topic name" />
-	<arg name="imu_topic_name" default="/imu" doc="IMU topic name" />
-	<arg name="linear_move_meters_per_sec" default="0.3" doc="Rate to move forward in meters/second" />
+    <arg name="imu_topic_name" default="/imu/data" doc="IMU topic name" />
+	<arg name="linear_move_meters_per_sec" default="1.5" doc="Rate to move forward in meters/second" />
 	<arg name="magnetic_declination" default="13.42" doc="Magnetic declination adjustment for IMU reading" />
 	<arg name="odometry_topic_name" default="/odom" doc="odometry topic name" />
 	<arg name="solve_using_odom" default="false" doc="true =&gt; compute distance using Odometry, not GPS" />
 	<arg name="use_imu" default="true" doc="true =&gt; use the IMU instead of Odometry as true robot heading" />
 	<arg name="waypoint_yaml_path" default="$(find victoria_navigation)/config/wimble_patio_waypoints.yaml" doc="path to yaml file containing waypoints" />
-	<arg name="yaw_turn_radians_per_sec" default="0.4" doc="Rate to make yaw moves in radians per second" />
+	<arg name="yaw_turn_radians_per_sec" default="0.7" doc="Rate to make yaw moves in radians per second" />
 	<!-- END victoria_navigation parameters -->
 	
   	<node pkg="victoria_navigation" name="robo_magellan_node" type="robo_magellan_node" respawn="false" output="screen" launch-prefix="$(arg launchPrefix)" >
