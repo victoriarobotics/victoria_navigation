@@ -1,5 +1,5 @@
 gps_points:
-    - { latitude: 37.356445, longitude: -122.037291, has_cone: false, is_home: true} # West edge sidewalk, back of van
+  #  - { latitude: 37.356445, longitude: -122.037291, has_cone: false, is_home: true} # West edge sidewalk, back of van
     - { latitude: 37.356445, longitude: -122.037366, has_cone: true } # Center of street, west of pt 1
     - { latitude: 37.356356, longitude: -122.037366, has_cone: false } # Center of street, top of hedge
     - { latitude: 37.356445, longitude: -122.037366, has_cone: true } # Center of street, west of pt 1
