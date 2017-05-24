@@ -22,6 +22,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <actionlib/client/simple_action_client.h>
+#include <actionlib/client/terminal_state.h>
 #include <algorithm>
 #include <angles/angles.h>
 #include <boost/algorithm/string.hpp>
@@ -37,8 +39,8 @@
 #include <std_msgs/String.h>
 #include <unistd.h>
 
-#include "victoria_perception/ComputeKmeans.h"
 #include "victoria_navigation/discover_cone.h"
+#include "victoria_perception/KmeansAction.h"
 #include "victoria_perception/ObjectDetector.h"
 
 DiscoverCone::DiscoverCone() :
@@ -64,7 +66,7 @@ DiscoverCone::DiscoverCone() :
 	ROS_DEBUG_NAMED("discover_cone", "[DiscoverCone] PARAM yaw_turn_radians_per_sec: %7.4f", yaw_turn_radians_per_sec_);
 
     coneDetectorAnnotatorService_ = nh_.serviceClient<victoria_perception::AnnotateDetectorImage>("/cone_detector/annotate_detector_image");
-    computeKmeansService_ = nh_.serviceClient<victoria_perception::ComputeKmeans>("/kmeans_service/compute_kmeans", true);
+    //#####computeKmeansService_ = nh_.serviceClient<victoria_perception::ComputeKmeans>("/kmeans_service/compute_kmeans", true);
 }
 
 // Capture the lates ConeDetector information
@@ -247,62 +249,77 @@ void DiscoverCone::setSafeConeDetectorParameters(DiscoverCone::ClusterStatistics
 
 DiscoverCone::ClusterStatistics DiscoverCone::findNewConeDetectorParameters() {
 	static const int number_of_clusters = 16;
-	victoria_perception::ComputeKmeans kmeans_request; // The kmeans request.
-	kmeans_request.request.attempts = 1;
-	kmeans_request.request.image_topic_name = image_topic_name_;
-	kmeans_request.request.number_clusters = number_of_clusters;
-	kmeans_request.request.resize_width = 320;
-	kmeans_request.request.show_annotated_window = false;
-	computeKmeansService_.call(kmeans_request);
-	while (ros::ok() && kmeans_request.response.result_msg.empty()) {
-		ros::spinOnce();
-		cv::waitKey(10);
-	}
+    actionlib::SimpleActionClient<victoria_perception::KmeansAction> ac("compute_kmeans", true);
 
-	std::vector<std::string> clusters;
-	boost::split(clusters, kmeans_request.response.kmeans_result, boost::is_any_of("}"));
-	if (clusters.size() != (number_of_clusters + 1)) {
-		ROS_ERROR("Unexpected service response, expected %d clusters but found %d", (number_of_clusters + 1), (int) clusters.size());
-		return ClusterStatistics();
-	} else {
-		// Build a list of cluster statistics.
-		std::vector<ClusterStatistics> cluster_list;
-		for (int cluster_index = 0; cluster_index < clusters.size(); cluster_index++) {
-			if (clusters[cluster_index] == "") continue;
-			ClusterStatistics cluster_statistics;
-			if (!parseClusterStatistics(clusters[cluster_index], cluster_statistics)) {
-				ROS_ERROR("Unable to parse kmeans result for cluster index: %d", cluster_index);
-				return ClusterStatistics();
-			} else {
-				cluster_list.push_back(cluster_statistics);
+    ROS_INFO("[DiscoverCone::findNewConeDetectorParameters] Waiting for action server to start.");
+    // wait for the action server to start
+    ac.waitForServer(); //will wait for infinite time
+
+    ROS_INFO("[DiscoverCone::findNewConeDetectorParameters] Action server started, sending goal.");
+    // send a goal to the action
+    victoria_perception::KmeansGoal goal;
+    goal.attempts = 1;
+    goal.image_topic_name = image_topic_name_;
+    goal.number_clusters = number_of_clusters;
+    goal.resize_width = 320;
+    ac.sendGoal(goal);
+
+    //wait for the action to return
+    bool finished_before_timeout = ac.waitForResult(ros::Duration(5.0));
+
+    if (finished_before_timeout) {
+    	ROS_INFO("[DiscoverCone::findNewConeDetectorParameters] state: %s", ac.getState().toString().c_str());
+    	ROS_INFO("[DiscoverCone::findNewConeDetectorParameters] result msg: %s", ac.getResult()->result_msg.c_str());
+    	ROS_INFO("[DiscoverCone::findNewConeDetectorParameters] kmeans result: %s", ac.getResult()->kmeans_result.c_str());
+
+		std::vector<std::string> clusters;
+		boost::split(clusters, ac.getResult()->kmeans_result, boost::is_any_of("}"));
+		if (clusters.size() != (number_of_clusters + 1)) {
+			ROS_ERROR("Unexpected service response, expected %d clusters but found %d", (number_of_clusters + 1), (int) clusters.size());
+			return ClusterStatistics();
+		} else {
+			// Build a list of cluster statistics.
+			std::vector<ClusterStatistics> cluster_list;
+			for (int cluster_index = 0; cluster_index < clusters.size(); cluster_index++) {
+				if (clusters[cluster_index] == "") continue;
+				ClusterStatistics cluster_statistics;
+				if (!parseClusterStatistics(clusters[cluster_index], cluster_statistics)) {
+					ROS_ERROR("Unable to parse kmeans result for cluster index: %d", cluster_index);
+					return ClusterStatistics();
+				} else {
+					cluster_list.push_back(cluster_statistics);
+				}
 			}
-		}
 
-		ClusterStatistics new_parameters = computeLikelyConeParameters(cluster_list);
+			ClusterStatistics new_parameters = computeLikelyConeParameters(cluster_list);
 
-		if (new_parameters.min_hue == 179) {
-			// ### Test for now good kmeans results.
+			if (new_parameters.min_hue == 179) {
+				// ### Test for now good kmeans results.
+				return new_parameters;
+			}
+
+			// Fiddle with results.
+			new_parameters.min_hue -= 2;
+			new_parameters.max_hue += 2;
+			new_parameters.min_saturation -= 4;
+			new_parameters.max_saturation += 30;
+			new_parameters.min_value -= 10;
+			new_parameters.max_value = 255;
+			setSafeConeDetectorParameters(new_parameters);
+			ROS_INFO("[DiscoverCone::findNewConeDetectorParameters] new parameters:, min_hue: %d, max_hue: %d, min_saturation: %d, max_saturation: %d, min_value: %d, max_value: %d, pixel_count: %d",
+					 new_parameters.min_hue, 
+					 new_parameters.max_hue, 
+					 new_parameters.min_saturation, 
+					 new_parameters.max_saturation, 
+					 new_parameters.min_value, 
+					 new_parameters.max_value, 
+					 new_parameters.pixels);
 			return new_parameters;
 		}
-
-		// Fiddle with results.
-		new_parameters.min_hue -= 2;
-		new_parameters.max_hue += 2;
-		new_parameters.min_saturation -= 4;
-		new_parameters.max_saturation += 30;
-		new_parameters.min_value -= 10;
-		new_parameters.max_value = 255;
-		setSafeConeDetectorParameters(new_parameters);
-		ROS_INFO("[DiscoverCone::findNewConeDetectorParameters] new parameters:, min_hue: %d, max_hue: %d, min_saturation: %d, max_saturation: %d, min_value: %d, max_value: %d, pixel_count: %d",
-				 new_parameters.min_hue, 
-				 new_parameters.max_hue, 
-				 new_parameters.min_saturation, 
-				 new_parameters.max_saturation, 
-				 new_parameters.min_value, 
-				 new_parameters.max_value, 
-				 new_parameters.pixels);
-		return new_parameters;
-	}
+    } else {
+        ROS_INFO("Action did not finish before the time out.");
+        return ClusterStatistics();
+    }
 }
 
 void DiscoverCone::setNewConeDetectorParams() {

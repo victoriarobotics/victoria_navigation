@@ -9,6 +9,7 @@ SET(FLAGS "-g -ggdb -g3")
 add_definitions(-std=c++11)
 
 find_package(catkin REQUIRED
+  actionlib
 	geometry_msgs
 	gps_common
   message_generation
@@ -56,7 +57,7 @@ catkin_package(
   sensor_msgs
   std_msgs
   DEPENDS yaml-cpp
-  CATKIN_DEPENDS message_runtime
+  CATKIN_DEPENDS message_runtime victoria_perception
 )
 
 include_directories(
